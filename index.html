@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedro Mariano — Projects</title>
+<meta name="description" content="Pedro Mariano: business management student in Lisbon who builds finance and process automation. Live demos of his projects.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="./">Pedro Mariano</a>
+    <nav><a href="#projects">Projects</a><a href="#contact">Contact</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <img src="assets/photo.jpg" alt="Pedro Mariano" width="148" height="148">
+    <div>
+      <h1>Pedro Mariano</h1>
+      <p class="role">Finance &amp; Process Automation · Python · SQL · AI</p>
+      <p>Business Management student at ISCAL, Lisbon (finishing in 2027). I build automation on real business data:
+        at my family's minimarket I built a system that reads supplier invoices, checks them against the Portuguese
+        fiscal QR code and proposes new prices for a person to approve.</p>
+      <p>Below are my projects, and you can try them in your browser.</p>
+      <div class="links">
+        <a class="btn primary" href="invoice-demo/">Try the invoice demo</a>
+        <a class="btn" href="https://www.linkedin.com/in/pedro-mariano-pt">LinkedIn</a>
+        <a class="btn" href="https://github.com/Limin-design">GitHub</a>
+      </div>
+    </div>
+  </div>
+
+  <section id="projects">
+    <h2>Projects</h2>
+
+    <article class="card">
+      <h3>Invoice → Price <span class="tag">Live demo</span></h3>
+      <p class="stack">Python · SQLite · fiscal QR code · testing · Power BI · n8n</p>
+      <p>Prices at a small shop fall behind costs because every supplier invoice has to be read and typed by hand.
+        In the real store, <b>37% of sales</b> came from products whose cost had not been updated for more than two years.
+        This system reads the invoice, proves it against the fiscal QR code VAT rate by VAT rate, proposes costs and
+        shelf prices, and writes only what a person approved, with a verified backup and an undo log.</p>
+      <div class="facts">
+        <div class="fact"><b>0</b><span>wrong prices from misread numbers: the arithmetic checks caught every one</span></div>
+        <div class="fact"><b>23 / 23</b><span>production checks passing after two independent audits</span></div>
+        <div class="fact"><b>4.2×</b><span>faster invoice reading on an 8-year-old store PC</span></div>
+      </div>
+      <img class="shot" src="assets/pipeline.png" alt="How the invoice pipeline works: read, check, propose, approve, write safely" loading="lazy">
+      <p>The demo below is a public rewrite on synthetic data. It runs the <b>same Python code as the repository</b>
+        directly in your browser: pick an invoice, change a number and watch the proof fail, propose prices,
+        write them and undo the write.</p>
+      <div class="links">
+        <a class="btn primary" href="invoice-demo/">Open the live demo</a>
+        <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo">Code and tests</a>
+      </div>
+    </article>
+
+    <article class="card">
+      <h3>Pricing health dashboard</h3>
+      <p class="stack">Power BI data model · DAX · CSV export from the system above</p>
+      <p>One question: where is the store losing margin because prices fell behind costs? Products sold below cost
+        are ranked by money lost over 90 days, with audit materiality (ISA 320) to separate noise from real losses.</p>
+      <img class="shot" src="assets/dashboard.png" alt="Pricing health dashboard on synthetic data" loading="lazy">
+      <div class="links">
+        <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/powerbi">Data model and measures</a>
+      </div>
+    </article>
+
+    <div class="grid2">
+      <article class="card">
+        <h3>StratForge <span class="tag">Live app</span></h3>
+        <p class="stack">TypeScript · React · Tauri</p>
+        <p>A trading strategy builder: declarative strategies, bar-by-bar backtesting with fees and slippage, and tests
+          that show whether a result is robust or overfit (walk-forward, Monte Carlo, deflated Sharpe ratio).
+          An AI analyst calls the engine instead of computing results itself.</p>
+        <div class="links">
+          <a class="btn primary" href="stratforge/">Open the app</a>
+          <a class="btn" href="https://github.com/Limin-design/stratforge">Code</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <h3>Invoice triage workflow</h3>
+        <p class="stack">n8n · Google Sheets · Gmail</p>
+        <p>Each new invoice runs through the read-only summary command, is logged to a spreadsheet, and triggers
+          an email: "ready to approve" or "needs a person", with the reasons. The workflow never writes a price.</p>
+        <div class="links">
+          <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/automation">Workflow</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="contact">
+    <h2>Contact</h2>
+    <div class="card">
+      <p style="margin-top:0">I am looking for a full-time hybrid role in Lisbon, or a remote role, in business or finance systems
+        analysis, finance automation, AI and automation, or ERP. Portuguese and Romanian (native), English (C1).</p>
+      <div class="links">
+        <a class="btn primary" href="mailto:pedropaskalo999@gmail.com">pedropaskalo999@gmail.com</a>
+        <a class="btn" href="https://www.linkedin.com/in/pedro-mariano-pt">LinkedIn</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">All data in the demos is synthetic. The production pricing system and the store's data are private.</div>
+</footer>
+</body>
+</html>

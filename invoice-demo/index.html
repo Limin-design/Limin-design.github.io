@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice → Price — Live demo</title>
+<meta name="description" content="Live demo: the invoice pricing system's Python code running in your browser on synthetic data.">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+  .picker .btn.on { background: var(--accent); color: var(--surface); }
+  textarea {
+    width: 100%; min-height: 230px; resize: vertical; padding: 12px;
+    font: 13px/1.5 var(--mono); color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; white-space: pre; overflow-x: auto;
+  }
+  pre#out {
+    margin: 0; padding: 14px; min-height: 160px; max-height: 520px; overflow: auto;
+    font: 13px/1.5 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    white-space: pre;
+  }
+  .ok { color: var(--ok); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  .warn { color: var(--warn); }
+  .cmd { color: var(--muted); }
+  #status { font-size: 14px; color: var(--muted); margin: 0 0 8px; }
+  .hint { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
+  .legend { font-size: 14px; color: var(--muted); }
+  .legend li { margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="../">Pedro Mariano</a>
+    <nav><a href="../#projects">Projects</a><a href="https://github.com/Limin-design/invoice-pricing-demo">Code</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h1 style="font-size:30px;margin:8px 0 6px">Invoice → Price, live</h1>
+    <p style="color:var(--muted);margin:0 0 6px;max-width:760px">This page runs the Python package from the
+      <a href="https://github.com/Limin-design/invoice-pricing-demo">public repository</a> in your browser, on a
+      synthetic store with 128 products and a year of sales. Nothing is sent to a server.</p>
+    <p id="status">Loading Python in your browser (first visit takes a few seconds)…</p>
+  </section>
+
+  <div class="card">
+    <h3 style="font-size:18px">1. Choose a supplier invoice</h3>
+    <div class="picker" id="picker">
+      <button class="btn" data-f="samples/invoice_01_clean.txt" disabled>Clean invoice</button>
+      <button class="btn" data-f="samples/invoice_02_traps.txt" disabled>Invoice with traps</button>
+      <button class="btn" data-f="samples/invoice_03_missing_page.txt" disabled>Missing page</button>
+    </div>
+    <textarea id="inv" spellcheck="false" placeholder="The invoice text appears here once Python has loaded."></textarea>
+    <p class="hint">First line: the fiscal QR code (supplier tax number, total and taxable base per VAT rate).
+      Other lines: code, description, quantity, unit cost, value, VAT %. <b>Try changing a quantity or a value and
+      press "Read and prove" again.</b></p>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:18px">2. Run it</h3>
+    <div class="steps">
+      <button class="btn primary" data-cmd="read" disabled>Read and prove</button>
+      <button class="btn primary" data-cmd="price" disabled>Propose prices (simulate)</button>
+      <button class="btn" data-cmd="write" disabled>Write the approved plan</button>
+      <button class="btn" data-cmd="undo" disabled>Undo the last write</button>
+      <button class="btn" data-cmd="summary" disabled>Summary for automation (JSON)</button>
+      <button class="btn" data-cmd="report" disabled>Below-cost report</button>
+      <button class="btn" data-cmd="reset" disabled>Reset the store</button>
+    </div>
+    <pre id="out"></pre>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:18px">What to look for</h3>
+    <ul class="legend">
+      <li><b>Clean invoice:</b> every line closes (quantity × unit cost = value) and the lines add up to the QR code for each VAT rate, so the invoice is <span class="ok">PROVEN</span> and price changes are pre-approved.</li>
+      <li><b>Invoice with traps:</b> two lines for one product, a discount and a generic product. These cases go to a person instead of being guessed. They come from real findings of two independent code audits.</li>
+      <li><b>Missing page:</b> the lines no longer add up to the QR code, so the gap shows up and <span class="bad">nothing is pre-approved</span>.</li>
+      <li><b>Write and undo:</b> the writer only applies the exact plan that was simulated (fingerprint), makes a verified backup first and writes the undo log before the commit.</li>
+    </ul>
+  </div>
+</main>
+
+<footer><div class="wrap">Synthetic data only. The production system and the store's data are private.
+  <a href="../">Back to projects</a></div></footer>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
