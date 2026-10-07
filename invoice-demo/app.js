@@ -46,8 +46,7 @@ def run(cmd, text):
     if m and m.group(1) != "None":
         last_log = m.group(1)
     elif m:
-        text_out += "
-Nothing was approved, so nothing was written."
+        text_out += "\\nNothing was approved, so nothing was written."
     if cmd == "undo" and "Undone" in text_out:
         last_log = None
     return text_out
