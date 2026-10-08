@@ -105,11 +105,11 @@ h2 { font-size: clamp(30px, 4.4vw, 48px); line-height: 1.08; letter-spacing: -.0
 .card:hover::before { opacity: 1; }
 .card.wide { grid-column: span 2; min-height: 260px; }
 .card .num { font: 500 12px var(--mono); color: var(--dim); letter-spacing: .1em; margin-bottom: 26px; transform: translateZ(20px); }
-.card h3 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 12px; font-weight: 650; transform: translateZ(40px); }
-.card p { color: #b5b5b5; margin: 0 0 22px; transform: translateZ(25px); }
+.card h3 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 12px; font-weight: 650; transform: translateZ(14px); }
+.card p { color: #b5b5b5; margin: 0 0 22px; transform: translateZ(10px); }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; padding: 0; list-style: none; transform: translateZ(20px); }
 .tags li { font: 500 12px var(--mono); color: var(--muted); border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 10px; }
-.card .actions { margin-top: auto; transform: translateZ(50px); }
+.card .actions { margin-top: auto; transform: translateZ(16px); }
 .card .btn { padding: 10px 18px; font-size: 14px; }
 .badge { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: #0a0a0a; background: var(--text); border-radius: 999px; padding: 3px 9px; margin-left: 10px; vertical-align: 5px; }
 .note { font-size: 13px; color: var(--dim); margin: 14px 0 0; transform: translateZ(20px); }
