@@ -3,6 +3,8 @@
 //   own invoice reader (py/loja) runs in Pyodide to tie codes to amounts and prove the invoice against the QR.
 //   The Exemplos tab runs the public invoicepricing package on a synthetic store.
 const MODULES = ["__init__", "__main__", "apply", "cli", "db", "demo_data", "lines", "pricing", "proof", "qr", "report"];
+const LOJA = ["linhas_factura", "qr_factura", "loja_config", "propoe", "prova", "cruza", "motor_precos", "totais_factura"];
+const V = 9; // bump on every change: GitHub Pages caches the .py files
 const $ = (id) => document.getElementById(id);
 const euro = (v) => (v == null ? "—" : v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €");
 const num = (v, d = 4) => Number(v).toLocaleString("pt-PT", { maximumFractionDigits: d });
@@ -16,14 +18,14 @@ const pyReady = (async () => {
   await py.loadPackage("sqlite3");
   py.FS.mkdirTree("/home/pyodide/py/invoicepricing");
   for (const m of MODULES) {
-    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=8`)).text());
+    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=${V}`)).text());
   }
-  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch("py/demo_glue.py?v=8")).text());
+  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch(`py/demo_glue.py?v=${V}`)).text());
   py.FS.mkdirTree("/home/pyodide/py/loja");
-  for (const m of ["linhas_factura", "qr_factura", "loja_config"]) {
-    py.FS.writeFile(`/home/pyodide/py/loja/${m}.py`, await (await fetch(`py/loja/${m}.py?v=8`)).text());
+  for (const m of LOJA) {
+    py.FS.writeFile(`/home/pyodide/py/loja/${m}.py`, await (await fetch(`py/loja/${m}.py?v=${V}`)).text());
   }
-  py.FS.writeFile("/home/pyodide/py/loja_glue.py", await (await fetch("py/loja_glue.py?v=8")).text());
+  py.FS.writeFile("/home/pyodide/py/loja_glue.py", await (await fetch(`py/loja_glue.py?v=${V}`)).text());
   py.runPython("import sys; sys.path.insert(0, '/home/pyodide/py'); import demo_glue, loja_glue; demo_glue.reset()");
   return py;
 })();
@@ -178,6 +180,39 @@ async function getPaddle() {
 
 // The store reader takes RapidOCR boxes: [x_min, x_max, y_centre, height, text, confidence, slope].
 // The slope of the box's top edge is what lets it straighten a tilted sheet.
+// A sheet photographed sideways: the detector finds tall, narrow boxes and the text comes out as noise.
+// The store asks for upright photos; here the page is turned a quarter both ways and the side that
+// reads more text (confidence × characters) stays.
+function rotated(src, clockwise) {
+  const c = document.createElement("canvas");
+  c.width = src.height;
+  c.height = src.width;
+  const g = c.getContext("2d");
+  g.translate(clockwise ? c.width : 0, clockwise ? 0 : c.height);
+  g.rotate(clockwise ? Math.PI / 2 : -Math.PI / 2);
+  g.drawImage(src, 0, 0);
+  return c;
+}
+const sideways = (texts) => {
+  const tall = texts.filter((t) => {
+    const xs = t.box.map((p) => p[0]), ys = t.box.map((p) => p[1]);
+    return Math.max(...ys) - Math.min(...ys) > 1.5 * (Math.max(...xs) - Math.min(...xs));
+  }).length;
+  return texts.length >= 5 && tall > texts.length / 2;
+};
+const legibility = (texts) => texts.reduce((a, t) => a + t.mean * t.text.length, 0);
+
+async function readText(ocr, canvas) {
+  const run = async (c) => {
+    const img = c.getContext("2d").getImageData(0, 0, c.width, c.height);
+    return (await ocr.detect({ data: img.data, width: img.width, height: img.height })).texts;
+  };
+  const texts = await run(canvas);
+  if (!sideways(texts)) return texts;
+  const options = [texts, await run(rotated(canvas, true)), await run(rotated(canvas, false))];
+  return options.reduce((best, t) => (legibility(t) > legibility(best) ? t : best));
+}
+
 function toBoxes(texts) {
   return texts.map((t) => {
     const xs = t.box.map((p) => p[0]), ys = t.box.map((p) => p[1]);
@@ -218,10 +253,7 @@ $("botao-ler").onclick = async () => {
         qrText = await findQR(await toCanvas(photos[i].file, 3600));
       }
       stage(`a ler o texto (${page})…`);
-      const canvas = await toCanvas(photos[i].file, 2400);
-      const img = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-      const res = await ocr.detect({ data: img.data, width: img.width, height: img.height });
-      pages.push(toBoxes(res.texts));
+      pages.push(toBoxes(await readText(ocr, await toCanvas(photos[i].file, 2400))));
     }
     stage("a ligar códigos e contas e a provar contra o QR…");
     lastRead = { qrText, pages };
@@ -244,6 +276,10 @@ $("botao-outra").onclick = () => {
   realScreen = "ecra-factura";
   show("ecra-factura");
 };
+
+// When the OCR kept a whole row in one box, the description carries the row's numbers at the end
+// ("CHOUR CORR PRIMOR 200GR 5,000 1,29 6,4523,0 1,59"); they are already shown in the line's sum.
+const shortName = (d) => String(d || "").replace(/(\s+[-+]?\d[\d.,/%]*[a-z)]?){3,}\s*$/i, "");
 
 let margin = 30;
 const TAXA_NOME = { reduzida: "6%", intermedia: "13%", normal: "23%" };
@@ -273,13 +309,14 @@ function renderReal(r) {
   // Proof card
   if (q && r.prova.length) {
     const linhasProva = r.prova.map((x) => `<div class="prova"><span class="selo ${x.bate ? "ok" : "falha"}">${x.bate ? "✓" : "!"}</span>
-      <div><b>${x.taxa ? `IVA ${num(x.taxa, 0)}%` : "Isento"}</b> · o QR diz <span class="numero">${euro(x.qr)}</span>, as linhas somam
+      <div><b>${esc(x.nome)}</b> · o QR diz <span class="numero">${euro(x.qr)}</span>, as linhas somam
         <span class="numero">${euro(x.lido)}</span>${x.bate ? "" : ` <span class="t-falha">(faltam ${euro(Math.round((x.qr - x.lido) * 100) / 100)})</span>`}</div></div>`).join("");
     $("cartao-provas").innerHTML = `<h2>Prova contra o QR</h2>${linhasProva}
       ${r.provada
         ? `<div class="ok-caixa">✓ Factura provada: as linhas somam o que o QR declara, taxa a taxa. Na loja, só assim os preços vêm pré-aprovados.</div>`
-        : `<div class="aviso-caixa">Ainda não provada. Pode faltar uma página, uma linha mal lida ou uma página duvidosa.
-            Na loja, uma factura assim nunca tem preços pré-aprovados: uma pessoa vê tudo.</div>`}`;
+        : `<div class="aviso-caixa">Ainda não provada: ${esc(r.porque)}. Pode faltar uma página, uma linha mal lida
+            ou uma página duvidosa. Na loja, uma factura assim nunca tem preços pré-aprovados: uma pessoa vê tudo.</div>`}
+      ${r.avisos.map((a) => `<div class="aviso-caixa">${esc(a)}</div>`).join("")}`;
     $("cartao-provas").hidden = false;
   } else {
     $("cartao-provas").hidden = true;
@@ -303,11 +340,12 @@ function renderReal(r) {
       <div class="caixinha"><b class="numero">${euro(linhas.reduce((a, l) => a + l.valor, 0))}</b><span>soma das linhas</span></div>
     </div>
     <p class="suave" style="margin:10px 0 0">O leitor da loja liga cada código de artigo à conta da sua linha
-      (quantidade × preço = valor). Uma linha que não fecha a conta não passa.</p>`;
+      (quantidade × preço = valor). Uma linha que não fecha a conta não passa.${r.leitura === "caixas partidas em palavras"
+        ? " Nesta factura o OCR juntou colunas numa caixa só; ficou a leitura com as caixas partidas em palavras." : ""}</p>`;
 
   // Lines
   const items = linhas.map((l) => `<div class="artigo">
-      <div class="desc">${esc(l.descricao || "(sem descrição)")}</div>
+      <div class="desc">${esc(shortName(l.descricao) || "(sem descrição)")}</div>
       <div class="conta numero">${l.codigo ? esc(l.codigo) + " · " : ""}${num(l.quantidade, 3)} × ${cost(l.preco)}
         = ${euro(l.valor)} · IVA ${l.iva != null ? num(l.iva, 0) + "%" : "?"}</div>
       <div style="margin-top:6px">${l.pvp != null
