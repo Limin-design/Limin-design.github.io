@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentic Yellow Pages · Pedro Mariano</title>
+<meta name="description" content="A directory of 6,553 AI agents (remote MCP servers) that another agent can call, each one tested over its own protocol every day.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css">
+<link rel="stylesheet" href="../../assets/page.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 06</div>
+      <h1>Agentic Yellow Pages</h1>
+      <p class="lead">A directory of AI agents that another agent can actually call. Every day it reads the official
+        MCP Registry, connects to each server over the protocol itself, and records whether it answers, how fast, and
+        which tools it offers.</p>
+      <div class="actions">
+        <a class="btn solid" href="https://agenticyellowpage.com">Open the directory <span class="arrow">→</span></a>
+        <a class="btn" href="https://agentic-yellow-pages.onrender.com/stats">Live counts (API)</a>
+        <a class="btn" href="https://github.com/Limin-design/agentic-yellow-pages">Code</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>6,553</b><span>remote MCP servers listed, from the official registry</span></div>
+        <div class="stat"><b>3,257</b><span>answered the protocol and listed their tools on the first run</span></div>
+        <div class="stat"><b>2,331</b><span>exist but require authentication, and say so</span></div>
+        <div class="stat"><b>~9 min</b><span>to test the whole registry, daily on GitHub Actions</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap">
+      <div class="figure dark"><img src="../../assets/shots/agentic-yp.jpg" alt="Agentic Yellow Pages: the ranking of agents by protocol score" width="1800" height="1125" loading="lazy"></div>
+      <p class="caption">The ranking on agenticyellowpage.com, ordered by protocol score (figures from 8 October 2026).</p>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The first version</p>
+      <div class="prose">
+        <h2>A directory of agents with no agents in it.</h2>
+        <p>The first version crawled the web for files that agents publish (<code>agent-card.json</code>,
+          <code>llms.txt</code>), used an LLM to describe each site, and ran a "trust oracle": probe tasks, latency and
+          consistency checks, and a panel of LLM judges from different model families.</p>
+        <p>When I reviewed it, every audit had failed. The reason was not a bug in the judges: <strong>none of the 75
+          entries declared an endpoint another agent could call</strong>. Half were documentation sites found through
+          their <code>llms.txt</code>, and twelve could not even be named. The benchmark had been guessing
+          <code>/api/chat</code> on each domain and scoring the 404s as zero.</p>
+        <p>The free tiers had also gone to sleep: the database was paused and the scheduled jobs disabled, so the site
+          showed "Syncing…" forever.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The rebuild</p>
+      <div class="prose">
+        <h2>Start where agents declare their endpoints.</h2>
+        <ol class="steps">
+          <li><b>Source</b><span>The official MCP Registry lists servers with their remote endpoints. The sync keeps the
+            latest version of every active server with an HTTPS endpoint: 6,595 entries, 6,553 distinct endpoints.</span></li>
+          <li><b>Probe over MCP</b><span>For each endpoint: <code>initialize</code> over streamable HTTP (plain JSON or
+            server-sent events), then <code>tools/list</code>. Read-only by the specification; no tool is ever called.</span></li>
+          <li><b>Record what is true</b><span>Latency, protocol version, server name, the tools it exposes, and whether it
+            answered 401/403. A protected server is a real server: it is listed, tagged, and not given a score.</span></li>
+          <li><b>Score one thing</b><span>Can another agent connect and use it now? Reachable 20, answers
+            <code>initialize</code> 40, lists tools 20, latency 20. It is not a quality rating, and the page says so.</span></li>
+          <li><b>Serve it</b><span>The API returns real agents by default, best score first, with exact counts at
+            <code>/stats</code>; the old sites remain available with <code>include_sites=true</code>.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">What the data says</p>
+      <div class="prose">
+        <h2>Half of the registry works without credentials.</h2>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Result of the first run (8 Oct 2026)</th><th>Servers</th><th>Share</th></tr></thead>
+            <tbody>
+              <tr><td>Answered MCP and listed tools</td><td class="good">3,257</td><td>50%</td></tr>
+              <tr><td>Require authentication (401/403)</td><td>2,331</td><td>36%</td></tr>
+              <tr><td>Unreachable, wrong protocol or errors</td><td>965</td><td>15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">Shares of the 6,553 endpoints. In a 60-server sample the median <code>initialize</code> took 0.65 s.</p>
+        <h3>Built with</h3>
+        <ul class="chips"><li>Python</li><li>MCP (JSON-RPC, streamable HTTP, SSE)</li><li>FastAPI</li><li>Supabase / PostgREST</li>
+          <li>GitHub Actions</li><li>Render</li><li>Groq · Llama 3.3</li><li>ScrapeGraphAI</li></ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../kronos-study/"><small>← Previous project</small><strong>Does an AI model predict Bitcoin?</strong></a>
+    <a href="../../about/"><small>About me →</small><strong>Pedro Mariano</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>Directory data from the public MCP Registry; servers are listed as they answer.</span>
+  </div>
+</footer>
+</body>
+</html>
