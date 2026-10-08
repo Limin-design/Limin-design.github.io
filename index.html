@@ -3,117 +3,177 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pedro Mariano — Projects</title>
-<meta name="description" content="Pedro Mariano: business management student in Lisbon who builds finance and process automation. Live demos of his projects.">
-<link rel="stylesheet" href="assets/style.css">
+<title>Pedro Mariano</title>
+<meta name="description" content="Pedro Mariano builds automation on real business data. Projects you can try in your browser.">
+<meta name="theme-color" content="#0a0a0a">
+<meta property="og:title" content="Pedro Mariano">
+<meta property="og:description" content="Finance and process automation. Projects you can try in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/home.css">
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
 </head>
 <body>
-<header class="site">
-  <div class="wrap">
-    <a class="brand" href="./">Pedro Mariano</a>
-    <nav><a href="#projects">Projects</a><a href="#contact">Contact</a></nav>
-  </div>
+
+<header class="top">
+  <a class="mark" href="#top">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="#about" class="hide-sm">About</a>
+    <a href="#projects">Projects</a>
+    <a href="#contact">Contact</a>
+  </nav>
 </header>
 
-<main class="wrap">
-  <div class="hero">
-    <img src="assets/photo.jpg" alt="Pedro Mariano" width="148" height="148">
-    <div>
-      <h1>Pedro Mariano</h1>
-      <p class="role">Finance &amp; Process Automation · Python · SQL · AI</p>
-      <p>Business Management student at ISCAL, Lisbon (finishing in 2027). I build automation on real business data:
-        at my family's minimarket I built a system that reads supplier invoices, checks them against the Portuguese
-        fiscal QR code and proposes new prices for a person to approve.</p>
-      <p>Below are my projects, and you can try them in your browser.</p>
-      <div class="links">
-        <a class="btn primary" href="invoice-demo/">Try the invoice demo</a>
-        <a class="btn" href="https://www.linkedin.com/in/pedro-mariano-pt">LinkedIn</a>
-        <a class="btn" href="https://github.com/Limin-design">GitHub</a>
+<main id="top">
+  <section class="hero">
+    <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <div class="wrap">
+      <div class="hero-text">
+        <div class="eyebrow">Lisbon · Business Management, ISCAL</div>
+        <h1>Pedro<br>Mariano<span class="soft">.</span></h1>
+        <p class="lead">I build automation on real business data: systems that read, check and act,
+          and that a person can always verify.</p>
+        <div class="actions">
+          <a class="btn solid" href="#projects">See the projects <span class="arrow">→</span></a>
+          <a class="btn" href="#contact">Get in touch</a>
+        </div>
       </div>
     </div>
-  </div>
+    <a class="scroll-cue" href="#about">Scroll</a>
+  </section>
 
-  <section id="projects">
-    <h2>Projects</h2>
-
-    <article class="card">
-      <h3>Invoice → Price <span class="tag">Live demo</span></h3>
-      <p class="stack">Python · SQLite · fiscal QR code · testing · Power BI · n8n</p>
-      <p>Prices at a small shop fall behind costs because every supplier invoice has to be read and typed by hand.
-        In the real store, <b>37% of sales</b> came from products whose cost had not been updated for more than two years.
-        This system reads the invoice, proves it against the fiscal QR code VAT rate by VAT rate, proposes costs and
-        shelf prices, and writes only what a person approved, with a verified backup and an undo log.</p>
-      <div class="facts">
-        <div class="fact"><b>0</b><span>wrong prices from misread numbers: the arithmetic checks caught every one</span></div>
-        <div class="fact"><b>23 / 23</b><span>production checks passing after two independent audits</span></div>
-        <div class="fact"><b>4.2×</b><span>faster invoice reading on an 8-year-old store PC</span></div>
-      </div>
-      <img class="shot" src="assets/pipeline.png" alt="How the invoice pipeline works: read, check, propose, approve, write safely" loading="lazy">
-      <p>The demo below is a public rewrite on synthetic data. It runs the <b>same Python code as the repository</b>
-        directly in your browser: pick an invoice, change a number and watch the proof fail, propose prices,
-        write them and undo the write.</p>
-      <div class="links">
-        <a class="btn primary" href="invoice-demo/">Open the live demo</a>
-        <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo">Code and tests</a>
-      </div>
-    </article>
-
-    <article class="card">
-      <h3>Pricing health dashboard</h3>
-      <p class="stack">Power BI data model · DAX · CSV export from the system above</p>
-      <p>One question: where is the store losing margin because prices fell behind costs? Products sold below cost
-        are ranked by money lost over 90 days, with audit materiality (ISA 320) to separate noise from real losses.</p>
-      <img class="shot" src="assets/dashboard.png" alt="Pricing health dashboard on synthetic data" loading="lazy">
-      <div class="links">
-        <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/powerbi">Data model and measures</a>
-      </div>
-    </article>
-
-    <div class="grid2">
-      <article class="card">
-        <h3>StratForge <span class="tag">Live app</span></h3>
-        <p class="stack">TypeScript · React · Tauri</p>
-        <p>A trading strategy builder: declarative strategies, bar-by-bar backtesting with fees and slippage, and tests
-          that show whether a result is robust or overfit (walk-forward, Monte Carlo, deflated Sharpe ratio).
-          An AI analyst calls the engine instead of computing results itself, and sees the chart in every message:
-          with <b>live</b> on, candles stream from Binance and the analyst can comment on each closed candle
-          (bring your own model key). With <a href="https://github.com/Limin-design/stratforge/tree/main/tools/kronos-server">Kronos</a>
-          running on your computer, an open model trained only on candles draws its forecast on the chart.</p>
-        <p class="stack" style="margin-bottom:12px"><b>Try it in 3 clicks:</b> pick a candle size above the chart (for example 4h) to load Bitcoin,
-          then Strategy → "Trend - Golden Cross" → run backtest.</p>
-        <div class="links">
-          <a class="btn primary" href="stratforge/">Open the app</a>
-          <a class="btn" href="https://github.com/Limin-design/stratforge">Code</a>
+  <section class="block" id="about">
+    <div class="wrap about">
+      <div class="portrait reveal"><img src="assets/photo-bw.jpg" alt="Pedro Mariano" width="480" height="480" loading="lazy"></div>
+      <div class="reveal">
+        <p class="label">About</p>
+        <h2>Business problems, solved with software that can be checked.</h2>
+        <p>I study Business Management at ISCAL in Lisbon, finishing in 2027, and I run operations and systems at my
+          family's minimarket. There I built a system that reads supplier invoices, proves them against the Portuguese
+          fiscal QR code and proposes new prices for a person to approve.</p>
+        <p>What I care about is the part that makes automation safe: tests, audit trails, backups and a way to undo
+          every change.</p>
+        <div class="facts">
+          <div class="fact"><b>Python · SQL · Power BI</b><span>plus Azure, n8n and local AI models</span></div>
+          <div class="fact"><b>Finance and tax</b><span>Accounting (SNC), auditing, IRS and IRC</span></div>
+          <div class="fact"><b>Portuguese · Romanian · English</b><span>native, native, C1</span></div>
         </div>
-      </article>
-
-      <article class="card">
-        <h3>Invoice triage workflow</h3>
-        <p class="stack">n8n · Google Sheets · Gmail</p>
-        <p>Each new invoice runs through the read-only summary command, is logged to a spreadsheet, and triggers
-          an email: "ready to approve" or "needs a person", with the reasons. The workflow never writes a price.</p>
-        <div class="links">
-          <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/automation">Workflow</a>
-        </div>
-      </article>
+      </div>
     </div>
   </section>
 
-  <section id="contact">
-    <h2>Contact</h2>
-    <div class="card">
-      <p style="margin-top:0">I am looking for a full-time hybrid role in Lisbon, or a remote role, in business or finance systems
-        analysis, finance automation, AI and automation, or ERP. Portuguese and Romanian (native), English (C1).</p>
-      <div class="links">
-        <a class="btn primary" href="mailto:pedropaskalo999@gmail.com">pedropaskalo999@gmail.com</a>
+  <section class="block" id="projects">
+    <div class="wrap">
+      <p class="label reveal">Projects</p>
+      <h2 class="reveal">Things I built, ready to try.</h2>
+
+      <div class="projects">
+        <article class="card wide reveal">
+          <div class="num">01</div>
+          <h3>Invoice → Price<span class="badge">Live</span></h3>
+          <p>Reads supplier invoices, checks every line against the fiscal QR code VAT rate by VAT rate, and proposes
+            new costs and shelf prices that a person approves. The same Python code from the repository runs in your
+            browser: change a number and watch the invoice stop adding up.</p>
+          <ul class="tags"><li>Python</li><li>SQLite</li><li>22 tests</li><li>Safe writes with undo</li></ul>
+          <div class="actions">
+            <a class="btn solid" href="invoice-demo/">Try it live <span class="arrow">→</span></a>
+            <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo">Code</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <div class="num">02</div>
+          <h3>StratForge<span class="badge">Live</span></h3>
+          <p>A trading strategy builder: backtests with fees and slippage, tests that catch overfitting, live Bitcoin
+            candles, and an AI analyst that reads the chart and calls the engine instead of guessing.</p>
+          <ul class="tags"><li>TypeScript</li><li>React</li><li>AI agent</li></ul>
+          <div class="actions">
+            <a class="btn solid" href="stratforge/">Open the app <span class="arrow">→</span></a>
+            <a class="btn" href="https://github.com/Limin-design/stratforge">Code</a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <div class="num">03</div>
+          <h3>Pricing health dashboard</h3>
+          <p>A Power BI model that answers one question: where is the store losing margin because prices fell behind
+            costs? Products sold below cost are ranked by money lost.</p>
+          <ul class="tags"><li>Power BI</li><li>DAX</li><li>Star schema</li></ul>
+          <div class="actions">
+            <a class="btn solid" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/powerbi">See the dashboard <span class="arrow">→</span></a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <div class="num">04</div>
+          <h3>Invoice triage workflow</h3>
+          <p>Each new invoice is summarised, logged to a spreadsheet and routed by email: "ready to approve" or
+            "needs a person", with the reasons. It never writes a price.</p>
+          <ul class="tags"><li>n8n</li><li>Google Sheets</li><li>Gmail</li></ul>
+          <div class="actions">
+            <a class="btn solid" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/automation">See the workflow <span class="arrow">→</span></a>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <div class="num">05</div>
+          <h3>Does an AI model predict Bitcoin?</h3>
+          <p>I connected Kronos, an open model trained only on price candles, to StratForge and tested it on a year of
+            Bitcoin data it had never seen. It showed no reliable edge. The write-up explains how I measured it.</p>
+          <ul class="tags"><li>PyTorch</li><li>GPU</li><li>Out-of-sample test</li></ul>
+          <div class="actions">
+            <a class="btn solid" href="https://github.com/Limin-design/stratforge/tree/main/tools/kronos-server">Read the results <span class="arrow">→</span></a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block contact" id="contact">
+    <div class="wrap reveal">
+      <p class="label">Contact</p>
+      <h2>Let's talk.</h2>
+      <p>I am looking for a hybrid role in Lisbon, or a remote one, in business and finance systems, automation or AI.</p>
+      <div class="actions">
+        <a class="btn solid" href="mailto:pedropaskalo999@gmail.com">pedropaskalo999@gmail.com</a>
         <a class="btn" href="https://www.linkedin.com/in/pedro-mariano-pt">LinkedIn</a>
+        <a class="btn" href="https://github.com/Limin-design">GitHub</a>
       </div>
     </div>
   </section>
 </main>
 
 <footer>
-  <div class="wrap">All data in the demos is synthetic. The production pricing system and the store's data are private.</div>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>All demo data is synthetic. The production systems and the store's data stay private.</span>
+  </div>
 </footer>
+
+<script type="module" src="assets/hero3d.js"></script>
+<script>
+  // Reveal sections as they enter the viewport.
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+  // Project cards tilt in 3D towards the pointer (pointer devices only).
+  if (window.matchMedia("(hover: hover) and (prefers-reduced-motion: no-preference)").matches) {
+    document.querySelectorAll(".card").forEach((card) => {
+      card.addEventListener("pointermove", (e) => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        card.style.transform = `rotateX(${(0.5 - y) * 7}deg) rotateY(${(x - 0.5) * 9}deg) translateZ(0)`;
+        card.style.setProperty("--mx", `${x * 100}%`);
+        card.style.setProperty("--my", `${y * 100}%`);
+      });
+      card.addEventListener("pointerleave", () => { card.style.transform = ""; });
+    });
+  }
+</script>
 </body>
 </html>
