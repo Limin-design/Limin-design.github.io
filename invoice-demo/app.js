@@ -1,6 +1,7 @@
 // Store pricing app, public demo. Everything runs in the visitor's browser:
-//   jsQR reads the fiscal QR code, Tesseract.js reads the text, and the invoicepricing
-//   Python package (unchanged from the public repo) runs in Pyodide to parse and prove it.
+//   ZXing reads the fiscal QR code, PaddleOCR (the store's OCR models) reads the text, and the store app's
+//   own invoice reader (py/loja) runs in Pyodide to tie codes to amounts and prove the invoice against the QR.
+//   The Exemplos tab runs the public invoicepricing package on a synthetic store.
 const MODULES = ["__init__", "__main__", "apply", "cli", "db", "demo_data", "lines", "pricing", "proof", "qr", "report"];
 const $ = (id) => document.getElementById(id);
 const euro = (v) => (v == null ? "—" : v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €");
@@ -15,10 +16,15 @@ const pyReady = (async () => {
   await py.loadPackage("sqlite3");
   py.FS.mkdirTree("/home/pyodide/py/invoicepricing");
   for (const m of MODULES) {
-    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=6`)).text());
+    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=7`)).text());
   }
-  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch("py/demo_glue.py?v=6")).text());
-  py.runPython("import sys; sys.path.insert(0, '/home/pyodide/py'); import demo_glue; demo_glue.reset()");
+  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch("py/demo_glue.py?v=7")).text());
+  py.FS.mkdirTree("/home/pyodide/py/loja");
+  for (const m of ["linhas_factura", "qr_factura"]) {
+    py.FS.writeFile(`/home/pyodide/py/loja/${m}.py`, await (await fetch(`py/loja/${m}.py?v=7`)).text());
+  }
+  py.FS.writeFile("/home/pyodide/py/loja_glue.py", await (await fetch("py/loja_glue.py?v=7")).text());
+  py.runPython("import sys; sys.path.insert(0, '/home/pyodide/py'); import demo_glue, loja_glue; demo_glue.reset()");
   return py;
 })();
 
@@ -152,36 +158,45 @@ async function findQR(canvas) {
   return null;
 }
 
-// ---------- OCR ----------
-let worker = null;
-let ocrProgress = () => {};
-async function getWorker() {
-  if (!worker) {
-    worker = await Tesseract.createWorker("por", 1, {
-      logger: (m) => m.status === "recognizing text" && ocrProgress(m.progress),
+// ---------- OCR: the store's models (PaddleOCR PP-OCRv4), running in the browser ----------
+const MODELS = "https://cdn.jsdelivr.net/npm/@gutenye/ocr-models@1.4.2/assets/";
+let paddle = null;
+async function getPaddle() {
+  if (!paddle) {
+    const { Ocr, ort } = await import("./vendor/paddle-ocr.js");
+    ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
+    paddle = await Ocr.create({
+      models: {
+        detectionPath: MODELS + "ch_PP-OCRv4_det_infer.onnx",
+        recognitionPath: MODELS + "ch_PP-OCRv4_rec_infer.onnx",
+        dictionaryPath: MODELS + "ppocr_keys_v1.txt",
+      },
     });
-    await worker.setParameters({ preserve_interword_spaces: "1" });
   }
-  return worker;
+  return paddle;
 }
-function forOcr(canvas) {
-  // Greyscale with a little contrast: the paper gets lighter, the print darker.
-  const c = crop(canvas, 0, 0, canvas.width, canvas.height, 1);
-  const g = c.getContext("2d");
-  const img = g.getImageData(0, 0, c.width, c.height);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    const k = Math.max(0, Math.min(255, (v - 128) * 1.35 + 140));
-    d[i] = d[i + 1] = d[i + 2] = k;
-  }
-  g.putImageData(img, 0, 0);
-  return c;
+
+// The store reader takes RapidOCR boxes: [x_min, x_max, y_centre, height, text, confidence, slope].
+// The slope of the box's top edge is what lets it straighten a tilted sheet.
+function toBoxes(texts) {
+  return texts.map((t) => {
+    const xs = t.box.map((p) => p[0]), ys = t.box.map((p) => p[1]);
+    const dx = t.box[1][0] - t.box[0][0];
+    return [Math.min(...xs), Math.max(...xs), ys.reduce((a, b) => a + b, 0) / 4, Math.max(...ys) - Math.min(...ys),
+      t.text.normalize("NFKC").trim(), t.mean, dx ? (t.box[1][1] - t.box[0][1]) / dx : 0];
+  });
 }
 
 // ---------- reading a real invoice ----------
 let lastRead = null;
 function stage(text) { $("etapa").textContent = text; }
+
+function callLoja(qrText, pages) {
+  py.globals.set("_pg", JSON.stringify(pages));
+  py.globals.set("_qr", qrText || "");
+  py.globals.set("_mg", margin);
+  return JSON.parse(py.runPython("loja_glue.le(_pg, _qr, _mg)"));
+}
 
 $("botao-ler").onclick = async () => {
   if (!photos.length) return;
@@ -190,26 +205,27 @@ $("botao-ler").onclick = async () => {
   const t0 = Date.now();
   const tick = setInterval(() => ($("relogio").textContent = `${Math.round((Date.now() - t0) / 1000)} s`), 500);
   try {
-    stage("a preparar o leitor (só da primeira vez demora mais)…");
+    stage("a preparar o leitor da loja (da primeira vez descarrega cerca de 45 MB)…");
     await pyReady;
+    const ocr = await getPaddle();
     let qrText = null;
-    const rows = [];
+    const pages = [];
     for (let i = 0; i < photos.length; i++) {
       const page = `página ${i + 1} de ${photos.length}`;
-      const canvas = await toCanvas(photos[i].file, 2400);
       if (!qrText) {
         stage(`a procurar o código QR (${page})…`);
         // The fiscal QR is dense: look for it in a sharper copy than the one used for the text.
         qrText = await findQR(await toCanvas(photos[i].file, 3600));
       }
       stage(`a ler o texto (${page})…`);
-      ocrProgress = (p) => stage(`a ler o texto (${page}): ${Math.round(p * 100)}%`);
-      const { data } = await (await getWorker()).recognize(forOcr(canvas));
-      rows.push(...data.text.split("\n").map((r) => r.replace(/\s+/g, " ").trim()).filter(Boolean));
+      const canvas = await toCanvas(photos[i].file, 2400);
+      const img = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+      const res = await ocr.detect({ data: img.data, width: img.width, height: img.height });
+      pages.push(toBoxes(res.texts));
     }
-    stage("a provar a factura contra o QR…");
-    lastRead = { qrText, rows };
-    renderReal(JSON.parse(callPy("read_real", qrText || "", JSON.stringify(rows), currentMargin())), rows);
+    stage("a ligar códigos e contas e a provar contra o QR…");
+    lastRead = { qrText, pages };
+    renderReal(callLoja(qrText, pages));
     realScreen = "ecra-resultado";
     show("ecra-resultado");
   } catch (err) {
@@ -230,81 +246,92 @@ $("botao-outra").onclick = () => {
 };
 
 let margin = 30;
-const currentMargin = () => margin;
+const TAXA_NOME = { reduzida: "6%", intermedia: "13%", normal: "23%" };
 
-function renderReal(r, rows) {
+function renderReal(r) {
+  const q = r.qr;
   // Invoice card
-  if (r.qr) {
-    const q = r.qr;
-    const title = q.number.toUpperCase().startsWith(q.doc_type.toUpperCase()) ? q.number : `${q.doc_type} ${q.number}`;
-    $("cartao-factura").innerHTML = `<h2>Factura ${esc(title)}</h2>
-      <p class="suave" style="margin:0">Fornecedor NIF ${esc(q.supplier_nif)} · ${esc(q.date)}</p>
+  if (q) {
+    const taxas = Object.keys(q.por_taxa || {}).map((k) => TAXA_NOME[k] || k).join(" · ");
+    const data = q.data && q.data.length === 10 ? q.data.split("-").reverse().join("/") : q.data;
+    const titulo = (q.numero || "").toUpperCase().startsWith((q.tipo || "").toUpperCase()) ? q.numero : `${q.tipo || ""} ${q.numero || ""}`;
+    $("cartao-factura").innerHTML = `<h2>Factura ${esc(titulo)}</h2>
+      <p class="suave" style="margin:0">Fornecedor NIF ${esc(q.nif_fornecedor)} · ${esc(data)}</p>
       <div class="grelha" style="margin-top:12px">
         <div class="caixinha"><b class="numero">${euro(q.total)}</b><span>total da factura</span></div>
-        <div class="caixinha"><b class="numero">${euro(q.total_vat)}</b><span>IVA</span></div>
-        <div class="caixinha"><b>${Object.keys(q.bases).map((k) => k + "%").join(" · ") || "—"}</b><span>taxas de IVA</span></div>
+        <div class="caixinha"><b class="numero">${euro(q.total_impostos)}</b><span>impostos</span></div>
+        <div class="caixinha"><b>${taxas || "—"}</b><span>taxas de IVA</span></div>
       </div>
-      ${q.not_subject ? `<p class="suave" style="margin:10px 0 0">Não sujeito a IVA (ex.: tabaco): ${euro(q.not_subject)} — fica fora da prova por taxa.</p>` : ""}
-      ${r.qr_warning ? `<div class="aviso-caixa">${esc(r.qr_warning)}</div>` : ""}`;
+      ${q.nao_sujeito ? `<p class="suave" style="margin:10px 0 0">Não sujeito a IVA (ex.: tabaco): ${euro(q.nao_sujeito)}.</p>` : ""}
+      ${r.problemas_qr.map((p) => `<div class="aviso-caixa">${esc(p)}</div>`).join("")}`;
   } else {
-    $("cartao-factura").innerHTML = `<h2>Código QR</h2><div class="erro">${
-      r.qr_error ? "O código QR foi lido mas não bate certo consigo próprio: " + esc(r.qr_error)
-                 : "Não encontrei o código QR fiscal nas fotos."}</div>
+    $("cartao-factura").innerHTML = `<h2>Código QR</h2><div class="erro">Não encontrei o código QR fiscal nas fotos.</div>
       <p class="suave" style="margin:0">Sem o QR não há com que provar a factura. Fotografa a página onde está o QR,
-        de perto, direita e sem reflexo. As linhas lidas ficam na mesma em baixo.</p>`;
+        de perto, direita e sem sombra. As linhas lidas ficam na mesma em baixo.</p>`;
   }
 
   // Proof card
-  const pf = r.proof;
-  if (pf) {
-    const ratesHtml = pf.rates.map((x) => `<div class="prova"><span class="selo ${x.ok ? "ok" : "falha"}">${x.ok ? "✓" : "!"}</span>
-      <div><b>IVA ${x.rate}%</b> · o QR diz <span class="numero">${euro(x.declared)}</span>, as linhas somam
-        <span class="numero">${euro(x.read)}</span>${x.ok ? "" : ` <span class="t-falha">(faltam ${euro(x.gap)})</span>`}
-        <div class="suave">${x.lines} linha(s)</div></div></div>`).join("");
-    $("cartao-provas").innerHTML = `<h2>Prova contra o QR</h2>${ratesHtml}
-      ${pf.proven
+  if (q && r.prova.length) {
+    const linhasProva = r.prova.map((x) => `<div class="prova"><span class="selo ${x.bate ? "ok" : "falha"}">${x.bate ? "✓" : "!"}</span>
+      <div><b>${x.taxa ? `IVA ${num(x.taxa, 0)}%` : "Isento"}</b> · o QR diz <span class="numero">${euro(x.qr)}</span>, as linhas somam
+        <span class="numero">${euro(x.lido)}</span>${x.bate ? "" : ` <span class="t-falha">(faltam ${euro(Math.round((x.qr - x.lido) * 100) / 100)})</span>`}</div></div>`).join("");
+    $("cartao-provas").innerHTML = `<h2>Prova contra o QR</h2>${linhasProva}
+      ${r.provada
         ? `<div class="ok-caixa">✓ Factura provada: as linhas somam o que o QR declara, taxa a taxa. Na loja, só assim os preços vêm pré-aprovados.</div>`
-        : `<div class="aviso-caixa">Ainda não provada. Pode faltar uma página, uma linha mal lida ou uma linha sem IVA.
+        : `<div class="aviso-caixa">Ainda não provada. Pode faltar uma página, uma linha mal lida ou uma página duvidosa.
             Na loja, uma factura assim nunca tem preços pré-aprovados: uma pessoa vê tudo.</div>`}`;
     $("cartao-provas").hidden = false;
   } else {
     $("cartao-provas").hidden = true;
   }
 
-  // Summary
-  $("cartao-resumo").innerHTML = `<h2>Resumo</h2><div class="grelha">
-      <div class="caixinha"><b>${r.lines.length}</b><span>linhas com a conta certa</span></div>
-      <div class="caixinha"><b>${r.rows_not_closed}</b><span>linhas de texto que não fecham</span></div>
-      <div class="caixinha"><b class="numero">${euro(r.sum_read)}</b><span>soma das linhas lidas</span></div>
+  // Summary per page
+  const linhas = r.paginas.flatMap((p) => p.linhas);
+  const semConta = r.paginas.flatMap((p) => p.sem_conta);
+  const semCodigo = r.paginas.flatMap((p) => p.sem_codigo);
+  const resumoPaginas = r.paginas.map((p, i) => {
+    const tr = p.transporte_fim != null
+      ? ` · transporte ${euro(p.transporte_inicio || 0)} → ${euro(p.transporte_fim)}` : "";
+    return `<div class="prova"><span class="selo ${p.duvidosa ? "aviso" : "ok"}">${p.duvidosa ? "?" : "✓"}</span>
+      <div><b>Página ${i + 1}</b> · ${p.linhas.length} linha(s), ligadas por ${esc(p.modo)}${tr}
+      ${p.duvidosa ? `<div class="suave">Duvidosa: ${p.sem_conta.length} código(s) sem conta, ${p.sem_codigo.length} conta(s) sem código.</div>` : ""}</div></div>`;
+  }).join("");
+  $("cartao-resumo").innerHTML = `<h2>Leitura</h2>${resumoPaginas}
+    <div class="grelha" style="margin-top:10px">
+      <div class="caixinha"><b>${linhas.length}</b><span>artigos lidos</span></div>
+      <div class="caixinha"><b>${semConta.length + semCodigo.length}</b><span>por confirmar</span></div>
+      <div class="caixinha"><b class="numero">${euro(linhas.reduce((a, l) => a + l.valor, 0))}</b><span>soma das linhas</span></div>
     </div>
-    <p class="suave" style="margin:10px 0 0">Uma linha só conta quando quantidade × preço = valor, ao cêntimo.
-      As outras (cabeçalhos, moradas, totais) ficam de fora.</p>`;
+    <p class="suave" style="margin:10px 0 0">O leitor da loja liga cada código de artigo à conta da sua linha
+      (quantidade × preço = valor). Uma linha que não fecha a conta não passa.</p>`;
 
   // Lines
-  const items = r.lines.map((l) => `<div class="artigo">
-      <div class="desc">${esc(l.desc || "(sem descrição)")} ${l.doubtful ? '<span class="etiqueta e-neutro">dúvida</span>' : ""}</div>
-      <div class="conta numero">${l.code ? esc(l.code) + " · " : ""}${num(l.qty, 3)} × ${cost(l.unit_cost)}${l.discount ? ` (−${num(l.discount, 2)}%)` : ""}
-        = ${euro(l.value)} · IVA ${l.vat ?? "?"}%</div>
-      <div style="margin-top:6px">${l.price != null
-        ? `<span class="etiqueta e-subir numero">PVP ${euro(l.price)}</span>`
-        : `<span class="etiqueta e-nao">sem IVA, sem preço</span>`}</div>
-      ${l.notes.length ? `<div class="porque">${l.notes.map(esc).join(" · ")}</div>` : ""}
+  const items = linhas.map((l) => `<div class="artigo">
+      <div class="desc">${esc(l.descricao || "(sem descrição)")}</div>
+      <div class="conta numero">${l.codigo ? esc(l.codigo) + " · " : ""}${num(l.quantidade, 3)} × ${cost(l.preco)}
+        = ${euro(l.valor)} · IVA ${l.iva != null ? num(l.iva, 0) + "%" : "?"}</div>
+      <div style="margin-top:6px">${l.pvp != null
+        ? `<span class="etiqueta e-subir numero">PVP ${euro(l.pvp)}</span>`
+        : `<span class="etiqueta e-nao">sem IVA, sem preço</span>`}
+        ${l.prova_iva ? '<span class="etiqueta e-neutro">c/IVA confere</span>' : ""}</div>
     </div>`).join("");
+  const porConfirmar = [
+    ...semConta.map((k) => `${k.codigo} ${k.descricao || ""} — código sem conta lida`),
+    ...semCodigo.map((c) => `${num(c.quantidade, 3)} × ${cost(c.preco)} = ${euro(c.valor)} — conta sem código`),
+  ];
   $("cartao-linhas").innerHTML = `<h2>Artigos e preços</h2>
     <div class="margem"><label for="margem">Margem sobre o custo</label>
       <input class="campo-in numero" id="margem" inputmode="decimal" value="${margin}"> %</div>
     <p class="suave" style="margin:8px 0 4px">Na loja, cada artigo é ligado ao produto do back-office e o preço segue a
       margem desse produto. Aqui os artigos não existem numa loja, por isso a margem é igual para todos.</p>
-    ${items || '<div class="aviso-caixa">Nenhuma linha fechou a conta. Tenta uma foto mais direita e mais perto.</div>'}
-    ${r.suspect_rows.length ? `<div class="aviso-caixa"><b>Linhas que não fecharam a conta</b> — provavelmente um número mal lido.
-      O programa não adivinha: na loja, uma pessoa confirma estas linhas.
-      <pre class="saida" style="margin-top:6px">${esc(r.suspect_rows.join("\n"))}</pre></div>` : ""}
-    <details><summary>Texto lido da foto (${rows.length} linhas)</summary><pre class="saida">${esc(rows.join("\n"))}</pre></details>`;
+    ${items || '<div class="aviso-caixa">Nenhum artigo lido. Tenta uma foto mais direita, mais perto e sem sombra.</div>'}
+    ${porConfirmar.length ? `<div class="aviso-caixa"><b>Por confirmar</b> — o leitor não adivinha; na loja, uma pessoa vê estas linhas.
+      <pre class="saida" style="margin-top:6px">${esc(porConfirmar.join("\n"))}</pre></div>` : ""}`;
   $("margem").addEventListener("change", (e) => {
     const v = parseFloat(String(e.target.value).replace(",", "."));
     if (!Number.isFinite(v) || v < 0 || v > 500) return;
     margin = v;
-    renderReal(JSON.parse(callPy("read_real", lastRead.qrText || "", JSON.stringify(lastRead.rows), margin)), lastRead.rows);
+    renderReal(callLoja(lastRead.qrText, lastRead.pages));
   });
 }
 

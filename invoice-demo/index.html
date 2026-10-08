@@ -136,10 +136,11 @@
     </div>
     <div class="cartao">
       <h2>O que acontece</h2>
-      <p class="suave" style="margin:0">1. Lê o código QR fiscal (fornecedor, número, base e IVA de cada taxa).
-        2. Lê as linhas da factura e só confia numa linha quando a conta fecha: quantidade × preço = valor.
-        3. Prova a factura: as linhas têm de somar o que o QR declara, taxa a taxa. 4. Mostra o custo de cada artigo
-        e o preço de venda com a margem que escolheres.</p>
+      <p class="suave" style="margin:0">É o leitor da app da loja, a correr no teu browser. 1. Lê o código QR fiscal
+        (fornecedor, número, base e IVA de cada taxa). 2. Lê o texto com os mesmos modelos de OCR da loja (PaddleOCR).
+        3. Liga cada código de artigo à conta da sua linha: quantidade × preço = valor, ao cêntimo. 4. Prova a factura:
+        as linhas têm de somar o que o QR declara, taxa a taxa. 5. Mostra o custo de cada artigo e o preço de venda com a
+        margem que escolheres. Da primeira vez descarrega cerca de 45 MB (os modelos); depois fica guardado.</p>
     </div>
   </section>
 
@@ -204,7 +205,6 @@
 <script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
