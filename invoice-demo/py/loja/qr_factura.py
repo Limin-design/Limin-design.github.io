@@ -27,18 +27,30 @@ Uso:
   python\\python.exe qr_factura.py --teste
 """
 import os
+import re
 import sys
 
 # NIF da loja: o adquirente que tem de vir no campo B. Visto nas duas primeiras facturas reais
 # (Recheio e Pao de Mafra). Uma factura para outro NIF e o sinal mais barato de que se
 # fotografou o documento errado — ou que o IVA dela nao e dedutivel por esta empresa.
-NIF_LOJA = "240155300"
+try:                                                  # config\loja.json (auditoria 29/09, secao 5)
+    import loja_config as _LC
+    NIF_LOJA = _LC.nif()
+except ImportError:
+    NIF_LOJA = ""
 
 TAXAS = {  # (campo base, campo IVA) por escalao, espaco fiscal do continente
     "reduzida": ("I3", "I4"),
     "intermedia": ("I5", "I6"),
     "normal": ("I7", "I8"),
 }
+
+
+def _nif(v):
+    """Um NIF portugues (9 algarismos; o QR pode trazer "PT" a frente), ou None."""
+    t = re.sub(r"\s", "", str(v or "")).upper()
+    t = t[2:] if t.startswith("PT") else t
+    return t if re.fullmatch(r"\d{9}", t) else None
 
 
 def _num(v):
@@ -59,13 +71,18 @@ def interpreta(texto):
             campos[k.strip()] = v.strip()
     if "A" not in campos or "O" not in campos:
         return None
+    # O QR VEM DE FORA (auditoria 29/09, M2): o que nao tem a forma da Portaria 195/2020 nao passa. Um NIF
+    # com "<img ... onerror=...>" chegava a app como texto e virava a chave da memoria de ligacoes.
+    nif = _nif(campos.get("A"))
+    if not nif:
+        return None
     f = campos.get("F", "")
     fora = {
-        "nif_fornecedor": campos.get("A"),
-        "nif_cliente": campos.get("B"),
-        "tipo": campos.get("D"),
-        "data": ("%s-%s-%s" % (f[:4], f[4:6], f[6:8])) if len(f) == 8 else f,
-        "numero": campos.get("G"),
+        "nif_fornecedor": nif,
+        "nif_cliente": _nif(campos.get("B")) or ("" if not campos.get("B") else "invalido"),
+        "tipo": re.sub(r"[^A-Z]", "", (campos.get("D") or "").upper())[:2] or None,
+        "data": ("%s-%s-%s" % (f[:4], f[4:6], f[6:8])) if re.fullmatch(r"\d{8}", f) else None,
+        "numero": re.sub(r"[^\w /.\-]", "", campos.get("G") or "")[:60] or None,
         "atcud": campos.get("H"),
         "espaco_fiscal": campos.get("I1"),
         "base_isenta": _num(campos.get("I2")) or 0.0,

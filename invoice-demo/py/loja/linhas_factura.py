@@ -35,6 +35,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
@@ -43,7 +44,9 @@ sys.path.insert(0, AQUI)
 # "1.021,27" era rejeitado e as paginas 5 e 6 da factura 72816 ficavam sem prova. O ponto so
 # conta como milhares quando separa grupos de 3 algarismos e ha virgula: os codigos do Recheio
 # ("117627.1") nunca passam por aqui.
-NUM = re.compile(r"^-?(?:\d{1,7}|\d{1,3}(?:\.\d{3})+)(?:,\d{1,4})?$")
+# Ate 6 casas (01/10): o Primavera escreve o preco unitario com 5 ("5,00000", Quinta da Cidadoura) e com
+# o limite de 4 a unica linha da factura nao era numero, nao fechava a conta e a factura nao se provava.
+NUM = re.compile(r"^-?(?:\d{1,7}|\d{1,3}(?:\.\d{3})+)(?:,\d{1,6})?$")
 # 1084 no Pao de Mafra, 117627.1 no Recheio — seguido de espaco ou do fim, e nada mais. Com um
 # simples \b, o codigo postal "2640-202 Encarnacao" do cabecalho passava por artigo 2640 e
 # empurrava todas as contas uma linha abaixo (medido na primeira factura real).
@@ -108,12 +111,18 @@ def ocr(caminho):
     vizinhas. A inclinacao mede-se nas proprias caixas de texto largas (a aresta de cima de uma
     caixa de 20 caracteres e uma regua), e a altura de cada caixa corrige-se pela sua posicao
     horizontal: y' = y - inclinacao x x."""
-    import statistics
     cru = _ocr_cru(caminho)
-    largas = [c[6] for c in cru if c[1] - c[0] > 150]
-    incl = statistics.median(largas) if largas else 0.0
+    incl = _inclinacao(cru)
     # (x_min, y, altura, texto, conf, x_max) — o x_max serve para repartir numeros colados
     return [(c[0], c[2] - incl * (c[0] + c[1]) / 2.0, c[3], c[4], c[5], c[1]) for c in cru]
+
+
+def _inclinacao(cru):
+    """A inclinacao com que ocr() endireita as alturas. Quem precisar de voltar as coordenadas da
+    FOTO (para recortar um pedaco dela) tem de a desfazer: y_na_foto = y + inclinacao x x."""
+    import statistics
+    largas = [c[6] for c in cru if c[1] - c[0] > 150]
+    return statistics.median(largas) if largas else 0.0
 
 
 # ---------------------------------------------------------------- linhas visuais
@@ -161,12 +170,23 @@ def _partes(p):
     m = UNIDADE_COLADA.match(p)
     if m:
         return [m.group(1), m.group(2)]
+    # "10KG": a mesma coisa SEM casas decimais. Na factura da Lusiaves de 23/09 a linha da
+    # jardineira trazia "10KG" na coluna da quantidade (as outras traziam "1,957KG") e
+    # desaparecia inteira: sem quantidade nao ha conta, e sem conta nao ha linha.
+    m = UNIDADE_COLADA_INTEIRA.match(p)
+    if m:
+        return [m.group(1), m.group(2)]
     return [p]
 
 
 NOTA_COLADA = re.compile(r"^(\d{1,7},\d{2})([a-z]\))$")
 ZERO_LETRA_FIM = re.compile(r"^(\d{1,2},\d)[CO]$")
-UNIDADE_COLADA = re.compile(r"^(\d{1,6},\d{2,3})(UN|KG|LT|CX|PK|MT|M2|GR)$")
+# "5,00UN/" — a Dulcesol (29/09) imprime uma barra a seguir a unidade, e o OCR cola-a: sem isto a
+# quantidade nao era numero e a linha perdia-se inteira.
+UNIDADE_COLADA = re.compile(r"^(\d{1,6},\d{2,3})(UN|KG|LT|CX|PK|MT|M2|GR)/?$")
+# O GR fica DE FORA da versao sem decimais: "500GR" e quase sempre o tamanho da embalagem dentro
+# do nome do produto ("FIAMBRE 500GR"), nao uma quantidade da linha.
+UNIDADE_COLADA_INTEIRA = re.compile(r"^(\d{1,4})(UN|KG|LT|CX|PK|MT|M2)$")
 
 
 PONTO_DECIMAL = re.compile(r"^\d{1,4}\.\d{2}$")
@@ -174,6 +194,8 @@ PONTO_DECIMAL = re.compile(r"^\d{1,4}\.\d{2}$")
 # o deposito Volta). Entram como numeros so para o IVA: nao tem virgula, logo nunca sao preco
 # nem valor da linha.
 TAXA_PCT = re.compile(r"^(\d{1,2})%$")
+# percentagem com casas decimais ("1,00%", "10,50%"): quase sempre o desconto da linha
+PCT_DECIMAL = re.compile(r"^(\d{1,2},\d{1,2})%$")
 ISENCAO = re.compile(r"^M\d{2}$")
 # a coluna "VOL x UNID" da Poupanca ("2x6", "1x24", "3x"): nao e descricao
 VOL_UNID = re.compile(r"^\d{1,3}\s*[x×]\s*\d{0,3}$", re.I)
@@ -201,6 +223,10 @@ def _tokens(caixas):
                 fora.append((xi, _f(p), p, conf, y))
             elif TAXA_PCT.match(p) and float(TAXA_PCT.match(p).group(1)) in TAXAS_IVA:
                 fora.append((xi, float(TAXA_PCT.match(p).group(1)), p, conf, y))
+            elif PCT_DECIMAL.match(p):
+                # "1,00%": um DESCONTO (Dulcesol, 29/09: 4 x 0,68 - 1% = 2,69). So pode servir de
+                # desconto ou de taxa, nunca de quantidade, preco ou valor (ver _triplos)
+                fora.append((xi, _f(PCT_DECIMAL.match(p).group(1)), p, conf, y))
             elif ISENCAO.match(p):
                 fora.append((xi, 0.0, p, conf, y))
     return fora
@@ -226,34 +252,79 @@ def contas_da_fila(fila):
     return fora
 
 
-def _triplos(ns):
+def _valor_tres_casas(ns, l):
+    """O TOTAL COM TRES CASAS, a ultima zero: "6,800". Dinheiro impresso com uma casa a mais.
+
+    A Dulcesol imprime o total assim (medido a 29/09, duas facturas). O leitor so aceitava valores com
+    duas casas — e de proposito, ver _triplos — e todas as linhas com caixa partida (0,50CX) se
+    perdiam: 6,80 + 5,45 = 12,25 a 6% faltava nas duas facturas, ao centimo. As linhas com 1,00CX
+    liam-se POR COINCIDENCIA, porque o preco por caixa e o total sao o mesmo numero.
+
+    So vale na ULTIMA coluna da fila, que e onde fica o total, e so com a ultima casa a zero. Uma
+    quantidade de tres casas ("6,000" do Recheio) nunca e a ultima da fila."""
+    t = ns[l][2]
+    return l == len(ns) - 1 and _casas(t) == 3 and t.rstrip()[-1] == "0"
+
+
+def _triplos(ns, com_iva=False, tres_casas=False):
     """Todas as contas que batem na fila: [(pontos, i, j, l, d)] — quantidade i, preco j, valor l,
-    desconto d. Quem escolhe entre elas e _melhor_conta (ou a coluna do valor da pagina)."""
+    desconto d. Quem escolhe entre elas e _melhor_conta (ou a coluna do valor da pagina).
+
+    TRES_CASAS: aceita tambem o total com tres casas na ultima coluna (_valor_tres_casas). So o
+    _melhor_conta o pede, e so quando a fila nao fechou de maneira nenhuma sem ele — as decisoes da
+    pagina inteira (valor_com_iva, coluna_do_valor) continuam a contar so as contas de sempre.
+
+    COM_IVA: o talao do Recheio (a fatura simplificada em rolo, a que sai na caixa) imprime
+    "Valor C/IVA" — 24 x 0,13 da 3,12, e o que esta impresso e 3,53, que e 3,12 x 1,13. Nesse modo
+    a conta fecha com uma taxa legal pelo meio, e a taxa fica PROVADA pela propria conta: das
+    quatro taxas so uma da o valor impresso. Quem decide se a pagina e assim e `valor_com_iva`,
+    olhando para a pagina toda — uma linha sozinha a bater nao chega."""
     fora = []
+    pct = [n[2].endswith("%") and "," in n[2] for n in ns]      # "1,00%": so desconto ou taxa
     for i in range(len(ns)):
+        if pct[i]:
+            continue
         for j in range(i + 1, len(ns)):
             q, p = ns[i][1], ns[j][1]
             # o PRECO e dinheiro: tem virgula. "Vol" e "Qt./Vol." sao inteiros e nunca sao preco
-            if q <= 0 or p <= 0 or "," not in ns[j][2]:
+            if q <= 0 or p <= 0 or "," not in ns[j][2] or pct[j]:
                 continue
             for l in range(j + 1, len(ns)):
+                if pct[l]:
+                    continue
                 v = ns[l][1]
                 # o VALOR da linha e dinheiro: exactamente 2 casas. E isto que afasta a outra
                 # multiplicacao do Recheio, Vol x Qt./Vol = Qt.Total, porque a Qt.Total tem 3
                 # casas ("5,000"). A primeira versao apanhava-a e dizia "7 x 1 = 7,00".
-                if v <= 0 or _casas(ns[l][2]) != 2:
+                if v <= 0 or (_casas(ns[l][2]) != 2 and not (tres_casas and _valor_tres_casas(ns, l))):
                     continue
                 # Folga = arredondamento do valor (meio centimo) + o do preco impresso vezes a
                 # quantidade. Depende das CASAS com que o preco vem: com uma folga fixa de 1
                 # centimo passava "1,000 x 1,000 = 0,99" no espinafre, e "2,000 x 2,000 = 3,99"
                 # na margarina — duas quantidades tomadas por preco.
-                tol = 0.0051 + q * 0.5 * 10 ** (-_casas(ns[j][2]))
+                # NUNCA MENOS DE 2 CASAS (06/10, E0008): no talao do Recheio tirado de longe o OCR leu "0,8"
+                # (era "0,78", um algarismo perdido); com folga de decimas (9 x 0,05 = 0,45) "9 x 0,8 = 6,97"
+                # fechava e a TIRAS DE MILHO ficava com 0,77 em vez de 0,63. Um preco de factura nunca vem
+                # arredondado a menos de um centimo: com menos casas, falta um algarismo.
+                tol = 0.0051 + q * 0.5 * 10 ** (-max(2, _casas(ns[j][2])))
                 descontos = [0.0] + [ns[m][1] for m in range(j + 1, l) if 0 < ns[m][1] < 100]
+                achou = False
                 for d in descontos:
                     erro = abs(q * p * (1 - d / 100.0) - v)
                     if erro <= tol:
                         # quanto mais encostados e mais exacta a conta, melhor
-                        fora.append(((j - i) + (l - j) + erro, i, j, l, d))
+                        fora.append(((j - i) + (l - j) + erro, i, j, l, d, None))
+                        achou = True
+                        break
+                if achou or not com_iva:
+                    continue
+                # a taxa que faz a conta fechar. So UMA pode fechar: entre 6%, 13% e 23% a diferenca
+                # no valor e muito maior do que a folga do arredondamento.
+                for t in sorted(TAXAS_IVA):
+                    if not t:
+                        continue
+                    if abs(q * p * (1 + t / 100.0) - v) <= tol * (1 + t / 100.0) + 0.0051:
+                        fora.append(((j - i) + (l - j), i, j, l, 0.0, t))
                         break
     return fora
 
@@ -274,7 +345,72 @@ def coluna_do_valor(cadeias):
     return "ultima" if com >= 3 and podem >= 0.9 * com else None
 
 
-def _melhor_conta(ns, coluna_valor=None):
+def _taxa_da_linha(ns, i, j, l):
+    """Qual dos numeros da linha e a TAXA DE IVA (indice), ou None. i/j/l sao quantidade/preco/valor.
+
+    PREFERE uma taxa diferente de zero: no Pao de Mafra a coluna do desconto (0,00) vem antes da do
+    IVA (6,00), e a primeira versao apanhava o desconto e dizia IVA 0%. Zero so fica quando e o unico
+    candidato. A prova final da taxa e o QR, que tem a base por taxa.
+
+    Isto serve os DOIS leitores (o normal e o generico). Ate 23/09 o generico tinha uma regra so
+    dele, que exigia virgula ou "%" e so olhava para a direita do valor — e na factura da Lusiaves,
+    onde a taxa vem impressa "6"/"23" seca e ANTES da coluna do valor, todas as linhas saiam sem IVA."""
+    candidatos = [k for k in range(j + 1, len(ns))
+                  if k != l and ns[k][1] in TAXAS_IVA
+                  and ("," in ns[k][2] or TAXA_PCT.match(ns[k][2]) or ISENCAO.match(ns[k][2]))]
+    # TAXA SEM CASAS DECIMAIS ("6", "23" na Gelpeixe e na Lusiaves), as vezes impressa ANTES do preco
+    # liquido, por isso tambem se procura a esquerda do preco. So conta se houver UMA taxa legal na
+    # linha: dois numeros diferentes que sejam taxas seria adivinhar qual.
+    inteiros = [k for k in range(i + 1, len(ns))
+                if k not in (j, l) and "," not in ns[k][2] and ns[k][1] in TAXAS_IVA and ns[k][1] > 0]
+    if len({ns[k][1] for k in inteiros}) != 1:
+        inteiros = []
+    # As duas listas juntas, e so depois a preferencia pelo nao-zero. Na Lusiaves as colunas de
+    # desconto trazem "0,00" e nenhuma taxa com virgula: olhando so para a primeira lista, o zero
+    # ganhava e todas as linhas ficavam com IVA 0%. Quem traz virgula ou "%" continua a ir primeiro.
+    candidatos = candidatos + inteiros
+    # "6,00%" E QUASE SEMPRE O DESCONTO (PCT_DECIMAL, Dulcesol 29/09): so serve de taxa quando a linha nao
+    # tiver outra. Auditoria 29/09, M4: "10 | 1,50 | 6,00% | 14,10 | 23" dava IVA 6 — o desconto — e a
+    # taxa impressa, 23, perdia; num artigo novo criado dessa linha o IVA vinha pre-preenchido a 6%.
+    pct = [k for k in candidatos if PCT_DECIMAL.match(ns[k][2])]
+    if len(pct) < len(candidatos):
+        candidatos = [k for k in candidatos if k not in pct]
+    nao_zero = [k for k in candidatos if ns[k][1] > 0]
+    return nao_zero[0] if nao_zero else (candidatos[0] if candidatos else None)
+
+
+def valor_com_iva(cadeias):
+    """Esta pagina imprime o VALOR COM IVA? Decide-se pela pagina inteira, nunca linha a linha.
+
+    A fatura simplificada do Recheio (o rolo da caixa) tem a coluna "Valor C/IVA": 24 x 0,13 = 3,12
+    e o impresso e 3,53. Ate 23/09 essas linhas ficavam TODAS "sem conta" — a fatura de 591,49 EUR
+    de hoje deu zero linhas, e a de 66,51 EUR deu uma so (o deposito, que e a unica isenta e por
+    isso a unica onde as duas contas sao a mesma).
+
+    So se aceita se a pagina inteira concordar: pelo menos 3 filas onde a conta SO fecha com IVA, e
+    essas terem de ser a maioria das que fecham de alguma maneira. Uma linha sozinha a bater com
+    23% pelo meio e coincidencia; dez linhas seguidas nao sao. A prova final continua a ser o
+    resumo do IVA da propria factura (e o QR, quando o ha).
+
+    Devolve None quando a pagina NAO CHEGA PARA DECIDIR — poucas filas fecham de uma maneira ou da
+    outra. E ai, e so ai, que a memoria do formato do fornecedor tem uma palavra a dizer. Sem esta
+    distincao a memoria mandava contra a evidencia da propria pagina: a 24/09 o formato aprendido
+    da factura A4 do Recheio foi imposto ao talao de caixa do mesmo Recheio, que traz o valor COM
+    IVA, e a leitura passou de 39 linhas para zero."""
+    so_com = so_sem = 0
+    for ns in cadeias:
+        sem = bool(_triplos(ns))
+        com = bool([t for t in _triplos(ns, com_iva=True) if t[5]])
+        so_sem += sem
+        so_com += com and not sem
+    if so_com >= 3 and so_com > so_sem:
+        return True
+    if so_sem >= 3 and so_com == 0:
+        return False
+    return None
+
+
+def _melhor_conta(ns, coluna_valor=None, com_iva=False):
     """Procura quantidade x preco (x (1 - desconto)) = valor. None se nenhuma combinacao bater.
 
     Entre varias combinacoes validas escolhe a de quantidade mais proxima do preco: no Recheio
@@ -284,14 +420,25 @@ def _melhor_conta(ns, coluna_valor=None):
     COLUNA_VALOR ("ultima"): a pagina ja disse onde esta a coluna do total (ver coluna_do_valor) e
     so contam as contas que acabam la. Sem isto, na Gelpeixe "8,00 1,00 2,88 23 2,65 2,65 21,20"
     dava 1 x 2,65 = 2,65 (as colunas Preco liq. e Preco UN sao iguais) em vez de 8 x 2,65 = 21,20."""
-    todos = _triplos(ns)
+    todos = _triplos(ns, com_iva)
+    if not todos:
+        # SO QUANDO NADA FECHOU: o total com tres casas na ultima coluna (Dulcesol, "6,800").
+        # "5,00UN 0,50CX 1,360 13,60 6% 6,800" fecha de duas maneiras — 5 unidades a 1,36 e meia caixa
+        # a 13,60 — com o mesmo total. Fica a da MAIOR quantidade, que e a unidade que a loja vende; a
+        # outra e a mesma linha contada em caixas, nao um segundo preco para escolher.
+        extra = _triplos(ns, com_iva, tres_casas=True)
+        maior = {}
+        for t in extra:
+            if t[3] not in maior or ns[t[1]][1] > ns[maior[t[3]][1]][1]:
+                maior[t[3]] = t
+        todos = list(maior.values())
     escolha = [t for t in todos if t[3] == len(ns) - 1] if coluna_valor == "ultima" else todos
     if not escolha:
         escolha = todos
     if not escolha:
         return None
     validas = [(t[3], ns[t[2]][1], _casas(ns[t[2]][2])) for t in todos]
-    _, i, j, l, d = min(escolha)
+    _, i, j, l, d, taxa_da_conta = min(escolha)
     q, p, v = ns[i][1], ns[j][1], ns[l][1]
     # DOIS PRECOS PARA O MESMO VALOR. Na Gelpeixe o choco traz "10,00 1,00 8,00 8.10/KG 6 8.10
     # 6,48 64.80": 8 kg x 8,10 e 10 caixas x 6,48 dao ambos 64,80. O custo confirmado era 6,48 e
@@ -307,29 +454,22 @@ def _melhor_conta(ns, coluna_valor=None):
     alternativas = sorted({round(pp, 2) for ll, pp, casas in validas
                            if ll == l and casas == 2 and abs(pp - p) > 0.02 and abs(pp - p) > 0.02 * p
                            and (unidade is None or abs(pp - unidade) > 0.005)})
-    # Taxa de IVA: um numero com casas decimais, a direita do preco, que seja uma taxa legal.
-    # PREFERE uma taxa diferente de zero: no Pao de Mafra a coluna do desconto (0,00) vem antes
-    # da do IVA (6,00), e a primeira versao apanhava o desconto e dizia IVA 0%. Zero so fica
-    # quando e o unico candidato. A prova final da taxa e o QR, que tem a base por taxa.
-    candidatos = [k for k in range(j + 1, len(ns))
-                  if k != l and ns[k][1] in TAXAS_IVA
-                  and ("," in ns[k][2] or TAXA_PCT.match(ns[k][2]) or ISENCAO.match(ns[k][2]))]
-    if not candidatos:
-        # TAXA SEM CASAS DECIMAIS ("6", "23" na Gelpeixe), e impressa ANTES do preco liquido, por isso
-        # tambem se procura a esquerda do preco. Sem isto a Gelpeixe ficava com todas as linhas sem
-        # IVA e nenhuma base do QR se podia provar. So conta se houver UMA taxa legal na linha: dois
-        # numeros diferentes que sejam taxas seria adivinhar qual.
-        inteiros = [k for k in range(i + 1, len(ns))
-                    if k not in (j, l) and "," not in ns[k][2] and ns[k][1] in TAXAS_IVA and ns[k][1] > 0]
-        if len({ns[k][1] for k in inteiros}) == 1:
-            candidatos = inteiros
-    nao_zero = [k for k in candidatos if ns[k][1] > 0]
-    k_iva = nao_zero[0] if nao_zero else (candidatos[0] if candidatos else None)
+    k_iva = _taxa_da_linha(ns, i, j, l)
     iva = ns[k_iva][1] if k_iva is not None else None
     usados = {i, j, l} | ({k_iva} if k_iva is not None else set())
-    # prova extra do Recheio: preco x (1 + IVA) = preco c/IVA, na coluna a seguir
+    impresso = None
+    if taxa_da_conta:
+        # A conta so fechou com IVA pelo meio (talao do Recheio, coluna "Valor C/IVA"). A taxa fica
+        # provada pela propria conta — e mais forte do que a ler da coluna, que pode nem estar lida.
+        # O VALOR guardado e sempre SEM IVA, como em todas as outras facturas, para que as somas por
+        # taxa continuem a poder ser comparadas com as bases do QR. O impresso vai ao lado.
+        impresso, v = v, round(q * p, 2)
+        iva = taxa_da_conta
     com_iva_ok = None
-    if iva is not None:
+    if impresso is not None:
+        com_iva_ok = True
+    # prova extra do Recheio: preco x (1 + IVA) = preco c/IVA, na coluna a seguir
+    elif iva is not None:
         alvo = p * (1 + iva / 100.0)
         for k in range(l + 1, len(ns)):
             if k not in usados and abs(ns[k][1] - alvo) <= 0.011:
@@ -342,10 +482,356 @@ def _melhor_conta(ns, coluna_valor=None):
     livres = sorted({ns[k][2] for k in range(len(ns)) if k not in usados and "," not in ns[k][2]
                      and len(re.sub(r"\D", "", ns[k][2])) >= 4})
     return {"quantidade": q, "preco": p, "desconto": d, "valor": v, "iva": iva,
+            "valor_impresso_com_iva": impresso,
+            # onde estavam, nesta pagina, os numeros desta conta. As linhas que fecham ensinam
+            # assim as colunas as linhas que nao fecham (ver _segunda_vista).
+            "x_colunas": (ns[i][0], ns[j][0], ns[l][0]),
+            # e a ALTURA de cada uma: cada coluna tem o seu desvio (no Recheio o valor sai impresso
+            # um terco de linha acima da quantidade), e as linhas que fecham ensinam-no (pela_grelha)
+            "y_colunas": (ns[i][4], ns[j][4], ns[l][4]),
             "prova_iva": com_iva_ok, "conf_min": min(ns[i][3], ns[j][3], ns[l][3]),
             "precos_alternativos": alternativas, "preco_unidade": unidade, "outros_numeros": livres,
             # a altura da CONTA e a media das caixas que a formam, nao a da fila
             "y": (ns[i][4] + ns[j][4] + ns[l][4]) / 3.0, "_usados": usados}
+
+
+_leitor_celula = None
+
+# Realce opcional aplicado a CADA CELULA antes de a reler (segunda vista). E um sitio diferente do
+# detector: aqui e o reconhecedor a olhar para um numero sozinho, e um talao termico e cinzento
+# sobre cinzento. Serve para medir se dar contraste ajuda a ler algarismos esborratados — ver
+# ferramentas\ensaio_contraste.py. None = nao mexer na imagem, que e o que esta em producao ate a
+# medicao dizer o contrario.
+REALCE_CELULA = None
+
+
+def _celulas(faixa, minimo=4):
+    """Onde comeca e acaba cada coluna de numeros dentro da faixa, pelos vazios de tinta.
+
+    MINIMO e o maior vazio que ainda se atravessa sem cortar. Tem de ser MENOR do que o espaco
+    entre colunas e maior do que o espaco entre algarismos: com 16 px, "10,000" e "0,44" sairam
+    colados num so pedaco ("100000,44") e nao havia conta nenhuma."""
+    import numpy as np
+    a = np.asarray(faixa.convert("L"), dtype=float)
+    fundo = np.percentile(a, 80)
+    cheio = (a < fundo - 25).sum(axis=0) > 0
+    fora, i = [], 0
+    while i < len(cheio):
+        if not cheio[i]:
+            i += 1
+            continue
+        j = i
+        while j < len(cheio) and (cheio[j] or cheio[j:j + minimo].any()):
+            j += 1
+        if j - i >= 18:
+            fora.append((max(0, i - 4), min(len(cheio), j + 4)))
+        i = j
+    return fora
+
+
+def colunas_das_linhas(linhas, folga=0.18):
+    """As faixas de x das colunas quantidade/preco/valor, medidas nas linhas QUE JA FECHARAM.
+
+    Uma linha que fecha a conta provou onde estao as suas tres colunas. Juntando as que fecharam,
+    a pagina diz onde procurar as que nao fecharam — sem adivinhar formato nenhum e sem depender
+    de saber o fornecedor."""
+    import statistics as _st
+    colunas = []
+    for i in range(3):
+        xs = [l["x_colunas"][i] for l in linhas if l.get("x_colunas")]
+        if len(xs) < 3:
+            return None
+        meio = _st.median(xs)
+        largo = max(24.0, (max(xs) - min(xs)) or 24.0)
+        colunas.append((meio - largo * (0.5 + folga), meio + largo * (0.5 + folga)))
+    return colunas if colunas[0][1] < colunas[2][1] else None
+
+
+def completa_colunas(caminho, codigos, area, colunas, passo, desvio, largura):
+    """ENCHE OS BURACOS DAS COLUNAS: para cada codigo sem numero numa coluna, le essa celula.
+
+    Medido a 24/09: quando as tres colunas tem o MESMO numero de numeros, emparelha-las pela ordem
+    acerta TODAS (14 de 14, 19 de 19, 8 de 8 em tres paginas). Quando tem buracos — a factura
+    dificil tem 58 quantidades, 44 precos e 46 valores — nenhum metodo de emparelhamento safa,
+    porque os numeros que faltam nao existem para ser emparelhados.
+
+    Entao o trabalho nao e emparelhar melhor, e ENCHER. A segunda vista ja sabia recortar uma
+    celula e le-la; faltava corre-la celula a celula em vez de so nas filas perdidas por inteiro.
+    Nao inventa nada: le o que esta impresso naquele sitio, e o que nao se ler fica por ler.
+
+    Devolve os numeros novos, no mesmo formato de _tokens, para juntar a area."""
+    global _leitor_celula
+    if not colunas or not codigos:
+        return []
+    try:
+        from PIL import Image, ImageOps
+        from rapidocr_onnxruntime import RapidOCR
+    except Exception:                                    # noqa: BLE001
+        return []
+    if _leitor_celula is None:
+        _leitor_celula = RapidOCR()
+    img = ImageOps.exif_transpose(Image.open(caminho)).convert("RGB")
+    incl = _inclinacao(_ocr_cru(caminho))
+    alto = max(12, int(0.45 * passo))
+    novos = []
+    for k in codigos:
+        alvo = k["y"] + desvio
+        for x_de, x_ate in colunas:
+            if any(x_de <= t[0] <= x_ate and abs(t[4] - alvo) <= 0.55 * passo for t in area):
+                continue                                 # essa celula ja tem numero, nao se mexe
+            cy = alvo + incl * ((x_de + x_ate) / 2.0)
+            cel = img.crop((max(0, int(x_de) - 12), int(cy) - int(alto * 1.35),
+                            min(int(largura), int(x_ate) + 12), int(cy) + int(alto * 1.35)))
+            try:
+                r, _ = _leitor_celula(REALCE_CELULA(cel) if REALCE_CELULA else cel,
+                                      use_det=False, use_cls=False, use_rec=True)
+            except Exception:                            # noqa: BLE001
+                continue
+            texto = (r[0][0] if r else "").strip().replace(" ", "").replace("，", ",").replace(".", ",")
+            for p in _partes(texto):
+                if NUM.fullmatch(p):
+                    novos.append(((x_de + x_ate) / 2.0, _f(p), p,
+                                  float(r[0][1]) if r else 0.0, alvo))
+                    break                                # um numero por celula
+    return novos
+
+
+def _pela_grelha_por_coluna(sem_conta, area, colunas, passo, coluna, com_iva, linhas):
+    """A grelha com o DESVIO DE CADA COLUNA aprendido nas linhas vizinhas que ja fecharam.
+
+    Tres regras, e cada uma veio de um caso medido a 25/09:
+
+      1. O DESVIO E LOCAL. Para cada codigo perdido usam-se as linhas fechadas mais perto dele em
+         altura, e nao a mediana da pagina: o papel curva, e na factura 152114 o desvio da mesma
+         coluna vai de -50 a +25 px conforme a zona da folha.
+      2. A JANELA E APERTADA (um terco de linha a volta de onde a coluna diz que o numero esta). Com a
+         janela larga, na factura de 29/09 apareciam contas "que fecham" feitas com numeros de duas
+         linhas abaixo — era inventar.
+      3. SO UMA CONTA POSSIVEL, E CADA NUMERO SO SERVE UMA VEZ. Na 152114 dois codigos diferentes
+         agarravam o mesmo 7,76. Se um codigo tem duas contas diferentes a fechar, ou se dois codigos
+         querem o mesmo numero, nao se escolhe: fica por ler, e a prova e a cloud tratam dele.
+
+    E no fim, as linhas daqui continuam a passar pelo juiz de sempre (propoe._so_se_ajudar): so ficam
+    se aproximarem as somas do que a factura declara."""
+    ref = [(l["y_codigo"], [yc - l["y_codigo"] for yc in l["y_colunas"]])
+           for l in linhas if l.get("y_colunas") and l.get("y_codigo") is not None]
+    if len(ref) < 2:
+        return []                    # nao ha vizinhos que ensinem: fica so o metodo de sempre
+    chave = lambda t: (round(t[0], 1), round(t[4], 1))
+    # os numeros que ja pertencem a uma linha fechada nao podem servir outra
+    usados = {(round(x, 1), round(y, 1)) for l in linhas if l.get("y_colunas")
+              for x, y in zip(l["x_colunas"], l["y_colunas"])}
+    janela = passo / 3.0
+    propostas = []
+    for k in sem_conta:
+        y0 = k.get("fim_y") or k["y"]
+        viz = sorted(ref, key=lambda r: abs(r[0] - y0))[:4]
+        esperado = [y0 + sum(r[1][i] for r in viz) / len(viz) for i in range(3)]
+        cand = []
+        for i, (x_de, x_ate) in enumerate(colunas):
+            c = [t for t in area if x_de <= t[0] <= x_ate and abs(t[4] - esperado[i]) <= janela
+                 and chave(t) not in usados]
+            cand.append(sorted(c, key=lambda t: abs(t[4] - esperado[i]))[:4])
+        if not all(cand):
+            continue
+        depois = sorted((t for t in area if t[0] > colunas[-1][1] and abs(t[4] - esperado[2]) <= janela),
+                        key=lambda t: t[0])[:2]
+        fecham = {}
+        for q in cand[0]:
+            for p in cand[1]:
+                for v in cand[2]:
+                    c = _melhor_conta(sorted([q, p, v] + depois, key=lambda t: t[0]), coluna, com_iva)
+                    if not c:
+                        continue
+                    # a conta tem de ser FEITA COM ESTES TRES, e nao com outra combinacao dos numeros
+                    # dados (o _melhor_conta pode escolher a taxa como quantidade)
+                    v_lido = c.get("valor_impresso_com_iva") or c["valor"]
+                    if (abs(c["quantidade"] - q[1]) > 1e-6 or abs(c["preco"] - p[1]) > 1e-6
+                            or abs(v_lido - v[1]) > 1e-6):
+                        continue
+                    fecham.setdefault((q[1], p[1], v[1]), (c, {chave(q), chave(p), chave(v)}))
+        if len(fecham) == 1:
+            c, toks = next(iter(fecham.values()))
+            propostas.append((k, c, toks, esperado))
+    # um numero pedido por dois codigos: nenhum dos dois fica com ele
+    conta = Counter(t for _k, _c, toks, _e in propostas for t in toks)
+    fora = []
+    for k, c, toks, esperado in propostas:
+        if any(conta[t] > 1 for t in toks):
+            continue
+        c.pop("_usados", None)
+        c["y"] = sum(esperado) / 3.0
+        c["da_grelha"] = True
+        c["grelha_por_coluna"] = True
+        fora.append((k, c))
+    return fora
+
+
+def pela_grelha(sem_conta, area, colunas, passo, desvio, coluna, com_iva, linhas=None):
+    """A TABELA, montada a partir dos numeros QUE JA FORAM LIDOS: linha = codigo, coluna = faixa de x.
+
+    Porque e preciso, e porque nao chega encadear: na factura dificil a linha do QUEIJO MOZZ tem os
+    tres numeros lidos — 5,000 / 1,42 / 7,53, e 5 x 1,42 x 1,06 da 7,53 ao centimo — mas espalhados
+    por 34 px de altura, quase uma linha inteira, e nem por ordem. O encadeamento (_cadeias) liga
+    cada numero ao vizinho da direita com 19 px de tolerancia, por isso parte a fila em duas e a
+    cadeia que fecha acaba a usar a quantidade da linha SEGUINTE.
+
+    Aqui nao se encadeia: para cada codigo procura-se UM numero em cada coluna, o mais perto em
+    altura, e a conta e que diz se o conjunto serve. Quem manda continua a ser a aritmetica — se os
+    numeros forem de linhas diferentes, a conta nao fecha e nao sai linha nenhuma.
+
+    CADA COLUNA TEM O SEU DESVIO (Pedro, 25/09: "analisar coluna a coluna"). Medido nas linhas que
+    fecharam da pagina 2 do Recheio 73442: a quantidade sai a altura do codigo, o preco um decimo de
+    linha acima, e o VALOR um terco de linha acima — e o papel curva, por isso mais ainda nas filas
+    de baixo. Com um desvio so para a pagina toda, o numero "mais perto" na coluna do valor era o da
+    linha de cima, a conta nao fechava, e tres linhas perdiam-se com os numeros certos todos la
+    (2 x 6,79 = 13,58; 3 x 1,44 = 4,32; 8 x 0,32 = 2,56). Quando ha `linhas` fechadas que o digam,
+    ver `_pela_grelha_por_coluna`."""
+    if not colunas:
+        return []
+    if linhas:
+        # PRIMEIRO COLUNA A COLUNA, depois o de sempre para o que sobrar. A leitura por coluna nao
+        # substitui a antiga: na 152114 a coluna do PRECO esta meia linha abaixo das outras numa zona
+        # da folha, os vizinhos nao o previam, e a janela apertada perdia o PESSEGO (2 x 2,19 = 4,38),
+        # que o metodo antigo apanhava. Os numeros que a primeira usou ja nao servem a segunda.
+        primeiro = _pela_grelha_por_coluna(sem_conta, area, colunas, passo, coluna, com_iva, linhas)
+        feitos = {id(k) for k, _c in primeiro}
+        gastos = {(round(x, 1), round(y, 1)) for _k, c in primeiro
+                  for x, y in zip(c.get("x_colunas") or (), c.get("y_colunas") or ())}
+        resto = [t for t in area if (round(t[0], 1), round(t[4], 1)) not in gastos]
+        return primeiro + pela_grelha([k for k in sem_conta if id(k) not in feitos], resto, colunas,
+                                      passo, desvio, coluna, com_iva)
+    fora = []
+    for k in sem_conta:
+        alvo = (k.get("fim_y") or k["y"]) + desvio
+        escolhidos = []
+        for x_de, x_ate in colunas:
+            na_coluna = [t for t in area if x_de <= t[0] <= x_ate and abs(t[4] - alvo) <= 0.9 * passo]
+            if na_coluna:
+                escolhidos.append(min(na_coluna, key=lambda t: abs(t[4] - alvo)))
+        if len(escolhidos) < 3:
+            continue
+        # e o que vem DEPOIS da coluna do valor, que e onde mora a taxa de IVA. Sem isto as linhas
+        # montadas pela grelha saiam sem taxa, e uma linha sem taxa nao tem balde nas somas — a
+        # prova deixava de as poder contar e a factura afastava-se em vez de se aproximar.
+        depois = sorted((t for t in area
+                         if t[0] > colunas[-1][1] and abs(t[4] - alvo) <= 0.9 * passo),
+                        key=lambda t: t[0])[:2]
+        escolhidos += depois
+        escolhidos.sort(key=lambda t: t[0])
+        c = _melhor_conta(escolhidos, coluna, com_iva)
+        if c:
+            c.pop("_usados", None)
+            c["y"] = alvo
+            c["da_grelha"] = True
+            fora.append((k, c))
+    return fora
+
+
+def _segunda_vista(caminho, sem_conta, desvio, passo, largura, coluna, com_iva, colunas=None):
+    """Volta a olhar SO para as linhas que ficaram sem conta, e so para a faixa dos numeros.
+
+    PORQUE E PRECISO: o detector do OCR parte os numeros na virgula e come algarismos — no talao do
+    Recheio de 23/09 (66,51 EUR) quatro linhas ficaram sem conta por lhes faltar UM numero cada:
+    "5,38" saiu "38", "3,34" e "4,68" nao sairam de todo, "0,44" desapareceu. O reconhecedor, esse,
+    le bem uma imagem que ja seja uma linha so — o que falha e a deteccao, nao a leitura.
+
+    ISTO NAO INVENTA NADA. Podia-se calcular o numero que falta a partir dos outros dois (4 x 1,19
+    x 1,13 da 5,38 ao centimo) e seria sempre a resposta certa; nao se faz, porque seria escrever um
+    numero que ninguem leu. Aqui recorta-se o sitio onde ele esta impresso e le-se outra vez. Se a
+    releitura nao der, ou se a conta nao fechar, a linha fica sem conta como estava.
+
+    A altura da faixa vem do DESVIO que a propria pagina ja mediu entre cada codigo e os seus
+    numeros, para nao ir buscar algarismos a linha de cima ou de baixo."""
+    global _leitor_celula
+    try:
+        from PIL import Image, ImageOps
+        from rapidocr_onnxruntime import RapidOCR
+    except Exception:
+        return []
+    if _leitor_celula is None:
+        _leitor_celula = RapidOCR()
+    img = ImageOps.exif_transpose(Image.open(caminho)).convert("RGB")
+    incl = _inclinacao(_ocr_cru(caminho))
+    alto = max(12, int(0.45 * passo))
+    fora = []
+    for k in sem_conta:
+        x0 = int(k.get("fim_x") or 0) + 4        # rente a descricao: com 15 cortava-se o 1.o algarismo
+        if x0 >= largura - 60:
+            continue
+        alvo = (k.get("fim_y") or k["y"]) + desvio       # altura ja endireitada, como as outras contas
+        # as alturas vem de ocr(), ja endireitadas; para RECORTAR A FOTO ha que as desfazer
+        def na_foto(x, y=alvo):
+            return y + incl * x
+        if colunas:
+            # AS COLUNAS VEM DAS LINHAS QUE FECHARAM NESTA MESMA PAGINA. E a regua mais fiavel que
+            # ha: nao e um palpite sobre o formato, e onde os numeros estiveram nas linhas que se
+            # provaram a si proprias. Recorta-se cada coluna em vez de adivinhar os cortes pelo
+            # branco do papel, que num talao apertado ora cola duas colunas ora parte um numero.
+            ns = []
+            for x_de, x_ate in colunas:
+                cy = na_foto((x_de + x_ate) / 2.0)
+                cel = img.crop((max(0, int(x_de) - 12), int(cy) - int(alto * 1.35),
+                                min(int(largura), int(x_ate) + 12), int(cy) + int(alto * 1.35)))
+                try:
+                    r, _ = _leitor_celula(REALCE_CELULA(cel) if REALCE_CELULA else cel,
+                                          use_det=False, use_cls=False, use_rec=True)
+                except Exception:                    # noqa: BLE001
+                    continue
+                texto = (r[0][0] if r else "").strip().replace(" ", "").replace("，", ",").replace(".", ",")
+                for p in _partes(texto):
+                    if NUM.fullmatch(p):
+                        ns.append((x_de, _f(p), p, float(r[0][1]) if r else 0.0, alvo))
+            if len(ns) >= 3:
+                c = _melhor_conta(ns, coluna, com_iva)
+                if c:
+                    c.pop("_usados", None)
+                    c["y"] = alvo
+                    c["segunda_vista"] = True
+                    fora.append((k, c))
+                    continue
+        meio = int(na_foto((x0 + largura) / 2.0))
+        faixa = img.crop((x0, meio - alto, int(largura), meio + alto))
+        # VARIAS MANEIRAS DE CORTAR AS COLUNAS, e fica a que fecha a conta. Nenhum valor unico serve
+        # para todas as linhas: com vazios de 4 px liam-se duas linhas e perdia-se outra, com 6 px
+        # era ao contrario. Isto nao e adivinhar — sao leituras diferentes dos MESMOS pixeis, e quem
+        # aceita continua a ser a conta, que e uma prova independente.
+        for vazio, folga in ((4, 1.35), (6, 1.35), (9, 1.35), (4, 1.0), (6, 1.0)):
+            ns = []
+            for a, b in _celulas(faixa, vazio):
+                if b - a < 12:
+                    continue
+                # a celula le-se com mais folga em cima e em baixo do que a banda usada para a
+                # cortar: apertada, o reconhecedor perde a virgula decimal ("5,38" saia "538")
+                cy = na_foto(x0 + (a + b) / 2.0)
+                meia = max(10, int(alto * folga))
+                cel = img.crop((x0 + a, int(cy) - meia, x0 + b, int(cy) + meia))
+                try:
+                    r, _ = _leitor_celula(REALCE_CELULA(cel) if REALCE_CELULA else cel,
+                                          use_det=False, use_cls=False, use_rec=True)
+                except Exception:
+                    continue
+                texto = (r[0][0] if r else "").strip().replace(" ", "").replace("，", ",")
+                # o reconhecedor escreve a virgula decimal como ponto ("0.44"). Aqui le-se UMA celula
+                # de uma coluna de numeros, e nestas facturas o separador de milhares nao e impresso.
+                # Enganar-se nisto nao inventa nada: um numero mal pontuado nao fecha conta nenhuma e
+                # a linha fica por ligar, como estava.
+                texto = texto.replace(".", ",")
+                conf = float(r[0][1]) if r else 0.0
+                for p in _partes(texto):
+                    if not NUM.fullmatch(p):
+                        continue                   # so os numeros contam
+                    ns.append((x0 + a, _f(p), p, conf, alvo))
+            if len(ns) < 3:
+                continue
+            c = _melhor_conta(ns, coluna, com_iva)
+            if c:
+                c.pop("_usados", None)
+                c["y"] = alvo
+                c["segunda_vista"] = True
+                fora.append((k, c))
+                break
+    return fora
 
 
 def _e_codigo(texto):
@@ -378,7 +864,13 @@ def _codigos_da_fila(fila, largura):
             t = c[3]
             if _e_codigo(t) and c[0] <= 0.30 * largura:
                 break
-            if NUM.match(t.split()[0] if t.split() else "") or VOL_UNID.match(t.strip()):
+            primeira = t.split()[0] if t.split() else ""
+            if NUM.match(primeira) or VOL_UNID.match(t.strip()):
+                break
+            # a QUANTIDADE COLADA A UNIDADE ("5,00UN", "0,50CX") ja e a coluna seguinte, nao o nome: sem
+            # isto a Dulcesol ficava com "PaodeForma ... 5,00UN 0,50CX" na descricao, que e o que se
+            # compara com os nomes da loja. So com casas decimais: "10KG" pode ser parte do nome.
+            if UNIDADE_COLADA.match(primeira):
                 break
             # as ETIQUETAS do peixe e da carne ("Lote:", "Origem:", "Fornecedor:", "Nome Cientifico:")
             # vem por baixo da linha e nao fazem parte do nome: "DOURADA 300/400 TURQUIA Fornecedor"
@@ -478,8 +970,80 @@ def _cadeias(tokens, passo, largura):
     return cadeias
 
 
-def le_pagina(caminho):
+# "VALOR DEPOSITO SDR", "DepOsito SDR:9575911634501 7UPZERO" — o deposito de embalagens (Volta). O OCR
+# le o "o" como zero ("DepOsito"), e junta as palavras.
+DEPOSITO_NA_FILA = re.compile(r"DEP[O0]S[I1]T[O0]")
+
+
+def depositos(caixas, passo):
+    """AS LINHAS DE DEPOSITO, lidas directamente da fila. [(y, quantidade, preco, valor)].
+
+    O deposito de embalagens nao e mercadoria — nao leva preco nem etiqueta — mas CONTA PARA A PROVA:
+    a factura declara-o na base isenta (ou "nao sujeito"), e sem ele as somas nunca fecham. Medido a
+    25/09 em duas facturas: faltavam 3,60 e 4,00 na taxa 0, e eram exactamente os depositos.
+
+    Le-se a parte porque o caminho normal nao lhes chega, por duas razoes diferentes:
+      - a fila do deposito nao tem codigo de artigo (diz "VALOR DEPOSITO SDR"), por isso a conta dela
+        ficava orfa em `sem_codigo`;
+      - e numa das facturas as filas do deposito vem TODAS DEPOIS do ultimo codigo, fora da zona da
+        tabela, onde as contas nem sequer se procuram.
+
+    A fila tem de fechar a conta (quantidade x preco = valor) como qualquer outra: e isso que impede
+    que uma palavra parecida com "deposito" no meio de uma descricao invente uma linha.
+
+    E QUANDO O VALOR NAO SE LE, a conta faz-se. Numa das facturas o OCR devolveu "09'0" no lugar de
+    "0,60" em duas filas — mas leu a quantidade (6,000) e o preco (0,1000). O preco do deposito e o
+    mesmo em toda a factura, e aprende-se nas filas que fecharam: onde ele aparece, o valor e
+    quantidade x preco. Nao se inventa numero nenhum — multiplicam-se dois que estao impressos, e a
+    prova contra a base isenta declarada diz logo se a conta ficou errada."""
+    candidatas = []
+    for f in filas(caixas):
+        texto = " ".join(c[3] for c in f["caixas"]).upper().replace(" ", "")
+        if not DEPOSITO_NA_FILA.search(texto):
+            continue
+        ns = _numeros(f)
+        achado = None
+        for i in range(len(ns)):
+            for j in range(i + 1, len(ns)):
+                for k in range(j + 1, len(ns)):
+                    q, p, v = ns[i][1], ns[j][1], ns[k][1]
+                    if q > 0 and p > 0 and v > 0 and abs(q * p - v) <= 0.005 + 0.001 * q:
+                        # o VALOR e o maior numero que fecha: numa fila com "0,00 (NS) 0,00 2,80" ha
+                        # zeros pelo meio que nao sao a conta
+                        if achado is None or v > achado[2]:
+                            achado = (q, p, v)
+        candidatas.append((f["y"], achado, [n[1] for n in ns]))
+    # O PRECO DO DEPOSITO, aprendido nas filas que fecharam. So vale se TODAS concordarem: com precos
+    # diferentes nao se sabe qual e o desta fila e nao se arrisca.
+    precos = {a[1] for _y, a, _ns in candidatas if a}
+    unitario = precos.pop() if len(precos) == 1 else None
+    fora = []
+    for y, achado, ns in candidatas:
+        if achado:
+            fora.append((y, achado[0], achado[1], achado[2]))
+        elif unitario is not None and any(abs(n - unitario) < 0.0005 for n in ns):
+            # o valor nao se leu: a quantidade e o maior numero inteiro da fila que nao e o preco
+            qs = [n for n in ns if n >= 1 and abs(n - round(n)) < 0.0005 and abs(n - unitario) >= 0.0005]
+            if qs:
+                q = max(qs)
+                fora.append((y, q, unitario, round(q * unitario, 2)))
+    # a mesma fila lida duas vezes (duas caixas quase a mesma altura) nao conta duas vezes
+    limpo = []
+    for y, q, p, v in sorted(fora):
+        if limpo and abs(y - limpo[-1][0]) < passo * 0.5:
+            continue
+        limpo.append((y, q, p, v))
+    return limpo
+
+
+def le_pagina(caminho, formato=None):
     """Uma pagina: cada codigo de artigo fica com a conta da sua linha.
+
+    FORMATO (opcional, ver formatos.py): o que ja se sabe deste fornecedor de uma factura dele que
+    ficou provada. Por agora usa-se uma coisa so, mas e a que mais custa descobrir sozinho: se a
+    coluna do valor traz IVA. A deteccao automatica precisa de TRES linhas que so fechem com IVA
+    para se decidir, e numa pagina onde poucas linhas fecham nunca la chega — que e exactamente o
+    caso dos taloes dificeis. Sabendo-o do fornecedor, vale desde a primeira linha.
 
     HISTORIA DA LIGACAO numero-descricao, porque cada tentativa ensinou uma coisa:
       por ORDEM (i-esimo codigo com a i-esima conta) — bastava faltar um codigo para tudo o que
@@ -504,16 +1068,76 @@ def le_pagina(caminho):
     hi = (codigos[-1]["y"] + 1.5 * passo) if codigos else 1e9
     area = [t for t in _tokens(caixas) if lo < t[4] <= hi]
     contas = []
+    conta_colunas = None
     cadeias = [[area[k] for k in cadeia] for cadeia in _cadeias(area, passo, largura)]
     coluna = coluna_do_valor(cadeias)                     # onde esta o total nesta pagina
-    for ns in cadeias:
-        c = _melhor_conta(ns, coluna)
-        if c:
-            c.pop("_usados")
-            c["y"] = ns[0][4]       # a ponta esquerda da linha, a que fica junto a descricao
-            contas.append(c)
+    # A EVIDENCIA DESTA PAGINA MANDA SEMPRE; a memoria do fornecedor entra quando a pagina nao
+    # chega para decidir; e quando nem uma nem outra sabem, NAO SE ASSUME — leem-se as duas
+    # maneiras e fica a que fechar mais linhas.
+    #
+    # Assumir custava caro: a 24/09, ao ler o rolo do Recheio em bocados, cada bocado tinha poucas
+    # filas e a deteccao nao decidia; assumia-se "sem IVA", e como aquele talao e c/IVA nao fechava
+    # UMA linha — 59 codigos lidos e zero contas. Tentar as duas nao arrisca nada: quem aceita
+    # continua a ser a conta de cada linha.
+    def contas_de(com):
+        fora = []
+        for ns in cadeias:
+            c = _melhor_conta(ns, coluna, com)
+            if c:
+                c.pop("_usados")
+                c["y"] = ns[0][4]   # a ponta esquerda da linha, a que fica junto a descricao
+                fora.append(c)
+        return fora
+
+    com_iva = valor_com_iva(cadeias)
+    if com_iva is None and formato and formato.get("valor_com_iva") is not None:
+        com_iva = bool(formato["valor_com_iva"])
+    if com_iva is None:
+        # Quando nem a pagina nem o fornecedor sabem, fica-se pelo caso comum (valor SEM IVA).
+        # NAO se escolhe "a maneira que da mais linhas": a 24/09 essa regra leu uma pagina da
+        # Poupanca como se fosse c/IVA, ganhou quatro linhas e estragou as outras — a factura
+        # passou de faltar 1,90 EUR para faltar 26,82 e ainda inventou um escalao de 13% que ela
+        # nao tem. Mais linhas nao e o mesmo que linhas certas.
+        # Quem experimenta a outra maneira e o le_factura, que tem o QR para julgar o resultado.
+        com_iva = False
+    contas = contas_de(com_iva)
     contas.sort(key=lambda c: c["y"])
     linhas, sem_conta, sem_codigo, modo = _junta(codigos, contas, passo)
+    if sem_conta and linhas:
+        # segunda vista: reler a faixa dos numeros das linhas que ficaram sem conta
+        import statistics as _st
+        desvio = _st.median([l["y"] - l["y_codigo"] for l in linhas])
+        faixas = colunas_das_linhas(linhas)
+        # PRIMEIRO ENCHER AS COLUNAS (ler as celulas vazias), so depois emparelhar. Enquanto
+        # faltarem numeros, nenhum metodo de emparelhamento os pode arranjar — ver completa_colunas.
+        # SO AS FILAS PERDIDAS, e nao todos os codigos — medido a 24/09 e contra o que eu esperava.
+        # Encher tambem as celulas das filas que ja fecharam completa as colunas (de 48 para 49
+        # numeros em 54 codigos) mas PIORA a leitura: 44 linhas passaram a 43 e o buraco dos 23%
+        # aumentou 11 EUR. Os numeros lidos nas celulas dessas filas entram na area e dao a grelha
+        # candidatos errados para as filas vizinhas. Encher tudo nao compensa; encher onde falta,
+        # sim.
+        novos = completa_colunas(caminho, sem_conta, area, faixas, passo, desvio, largura)
+        area = area + novos
+        if faixas:
+            # quantos numeros tem cada coluna depois de cheias, e quantos codigos tem a pagina.
+            # Iguais = emparelhar por ordem e exacto (medido a 24/09 em tres paginas: 14/14, 19/19,
+            # 8/8). Serve de diagnostico e e o que diz se a tabela esta completa.
+            conta_colunas = [sum(1 for t in area if x0 <= t[0] <= x1) for x0, x1 in faixas]
+        else:
+            conta_colunas = None
+        # depois a releitura da fila inteira, e por fim a grelha com o que ja ha
+        recuperadas = _segunda_vista(caminho, sem_conta, desvio, passo, largura, coluna, com_iva,
+                                     faixas)
+        ja = {id(k) for k, _ in recuperadas}
+        recuperadas += pela_grelha([k for k in sem_conta if id(k) not in ja], area, faixas,
+                                   passo, desvio, coluna, com_iva, linhas=linhas)
+        for k, c in recuperadas:
+            linhas.append(dict(c, codigo=k["codigo"], descricao=k["descricao"], y_codigo=k["y"]))
+        achadas = {id(k) for k, _ in recuperadas}
+        sem_conta = [k for k in sem_conta if id(k) not in achadas]
+        linhas.sort(key=lambda l: l["y_codigo"])
+        if recuperadas:
+            modo += " + %d de segunda vista" % len(recuperadas)
     _promocoes(caixas, linhas)
     _texto_por_baixo(codigos, linhas)
     precos_por_unidade(linhas)
@@ -524,11 +1148,14 @@ def le_pagina(caminho):
     for l in linhas:
         if l["iva"] is None and "DEPOSITO" in l["descricao"].upper().replace(" ", ""):
             l["iva"] = 0.0
+    # O LEITOR GENERICO DECIDE-SE PELA MERCADORIA, e por isso os depositos so entram DEPOIS. Postos
+    # antes, uma pagina onde o leitor normal so apanhasse o deposito deixava de parecer vazia e o
+    # generico nunca corria: foi o que aconteceu a 25/09 na factura 191054, que passou de 3 linhas
+    # (pelo generico) para uma so, a do deposito.
     if not linhas:
-        # nenhuma linha pelas regras dos formatos conhecidos: tenta o leitor generico
         g = le_pagina_generica(caminho, caixas)
         if g["linhas"]:
-            return g
+            return _com_depositos(g, caixas, passo)
     tr = transportes(fs)
     inicio = fim = None
     if tr and codigos:
@@ -536,10 +1163,33 @@ def le_pagina(caminho):
         abaixo = [v for y, v in tr if y > codigos[-1]["y"]]
         inicio = acima[-1] if acima else 0.0
         fim = abaixo[0] if abaixo else None
-    return {"ficheiro": os.path.basename(caminho), "linhas": linhas,
-            "sem_conta": sem_conta, "sem_codigo": sem_codigo, "modo": modo,
-            "duvidosa": bool(sem_conta or sem_codigo or modo not in MODOS_FIAVEIS),
-            "transporte_inicio": inicio, "transporte_fim": fim}
+    return _com_depositos({"ficheiro": os.path.basename(caminho), "linhas": linhas,
+                           "sem_conta": sem_conta, "sem_codigo": sem_codigo, "modo": modo,
+                           "colunas_cheias": conta_colunas, "codigos": len(codigos),
+                           "duvidosa": bool(sem_conta or sem_codigo or modo not in MODOS_FIAVEIS),
+                           "transporte_inicio": inicio, "transporte_fim": fim}, caixas, passo)
+
+
+def _com_depositos(pagina, caixas, passo):
+    """Acrescenta a uma pagina ja lida as filas de DEPOSITO que ela nao apanhou (ver `depositos`).
+
+    Entram como linhas para a prova poder fechar — a factura declara-as na base isenta. Nao sao
+    mercadoria: levam `deposito` e o `propoe` deixa-as de fora das propostas de preco, como ja deixava
+    as que vinham com codigo proprio."""
+    linhas = pagina["linhas"]
+    ja = [l.get("y_codigo", l.get("y")) for l in linhas]
+    for y, q, p, v in depositos(caixas, passo):
+        if any(t is not None and abs(y - t) < passo * 0.5 for t in ja):
+            continue
+        linhas.append({"codigo": "DEPOSITO", "descricao": "DEPOSITO DE EMBALAGENS",
+                       "quantidade": q, "preco": p, "valor": v, "iva": 0.0, "desconto": 0,
+                       "y": y, "y_codigo": y, "deposito": True, "outros_numeros": [],
+                       "conf_min": None, "precos_alternativos": [], "preco_unidade": None})
+        # a conta orfa desta fila, se a houve, passa a estar contada na linha
+        pagina["sem_codigo"] = [c for c in (pagina.get("sem_codigo") or [])
+                                if abs(c.get("y", -1e9) - y) >= passo * 0.5]
+    linhas.sort(key=lambda l: l.get("y_codigo", l.get("y", 0)))
+    return pagina
 
 
 # ---------------------------------------------------------------- leitor generico (formatos novos)
@@ -561,7 +1211,7 @@ def _conta_generica(ns):
                 v = ns[l][1]
                 if v <= 0 or _casas(ns[l][2]) not in (2, 3):
                     continue
-                tol = 0.0051 + q * 0.5 * 10 ** (-_casas(ns[j][2]))
+                tol = 0.0051 + q * 0.5 * 10 ** (-max(2, _casas(ns[j][2])))
                 descontos = [0.0] + [ns[m][1] for m in range(j + 1, l) if 0 < ns[m][1] < 100]
                 for d in descontos:
                     erro = abs(q * p * (1 - d / 100.0) - v)
@@ -573,9 +1223,8 @@ def _conta_generica(ns):
     if not melhor:
         return None
     _, i, j, l, d = melhor
-    taxas = [k for k in range(l + 1, len(ns)) if ns[k][1] in TAXAS_IVA
-             and ("," in ns[k][2] or TAXA_PCT.match(ns[k][2]) or ISENCAO.match(ns[k][2]))]
-    return {"i": i, "j": j, "l": l, "d": d, "iva": ns[taxas[0]][1] if taxas else None}
+    k_iva = _taxa_da_linha(ns, i, j, l)
+    return {"i": i, "j": j, "l": l, "d": d, "iva": ns[k_iva][1] if k_iva is not None else None}
 
 
 ETIQUETA_POR_BAIXO = re.compile(
@@ -656,6 +1305,7 @@ def le_pagina_generica(caminho, caixas=None):
     xs = sorted(it["esq"][0][0] for it in itens)
     x_ref = xs[len(xs) // 2]
     alinhadas = [it for it in itens if abs(it["esq"][0][0] - x_ref) <= 0.025 * largura]
+    sem_conta = _codigos_sem_conta(filas(caixas), itens, x_ref, largura)
     # onde comeca a descricao: a 2.a caixa nas filas em que o OCR as separou
     segundas = sorted(it["esq"][1][0] for it in alinhadas if len(it["esq"]) > 1)
     x_desc = segundas[len(segundas) // 2] if segundas else None
@@ -705,10 +1355,55 @@ def le_pagina_generica(caminho, caixas=None):
     _continuacao(filas(caixas), linhas, x_desc if x_desc is not None else x_ref, largura)
     precos_por_unidade(linhas)
     fraccao = len(alinhadas) / len(itens)
-    return {"ficheiro": os.path.basename(caminho), "linhas": linhas, "sem_conta": [], "sem_codigo": sem_codigo,
+    lidos = {l["codigo"] for l in linhas}
+    sem_conta = [k for k in sem_conta if k["codigo"] not in lidos]     # um codigo que ja e linha nao falta
+    return {"ficheiro": os.path.basename(caminho), "linhas": linhas, "sem_conta": sem_conta, "sem_codigo": sem_codigo,
             "modo": "generico (%d filas pela conta; referencia alinhada em %.0f%%)" % (len(itens), 100 * fraccao),
-            "duvidosa": bool(sem_codigo) or fraccao < 0.8,
+            "duvidosa": bool(sem_codigo or sem_conta) or fraccao < 0.8,
             "transporte_inicio": None, "transporte_fim": None}
+
+
+def _codigos_sem_conta(fs, itens, x_ref, largura):
+    """As filas da tabela com um CODIGO na coluna das referencias mas SEM CONTA que feche. O leitor generico
+    saltava-as sem deixar rasto: a 30/09, na Meigal, "1000000238 ALMONDEGAS BOVINO ... 5 UN x 27,50 = 27,50"
+    (o preco era o da embalagem de 5) desapareceu — nem "codigo sem linha" ficou, e o codigo de barras do
+    saco nao tinha a que se ligar. Nao se inventa numero nenhum: fica so o codigo e a descricao, e a prova
+    passa a saber que falta uma linha.
+
+    So conta uma fila: dentro da zona da tabela (entre a primeira e a ultima linha que fechou, com a folga de
+    uma linha para cima e para baixo), com a primeira caixa na coluna da referencia medida nas linhas que
+    fecharam, e um codigo com algarismos seguido de descricao com letras."""
+    # pela ALTURA da fila e nao pelo objecto: as filas sao calculadas outra vez para aqui chegarem
+    feitas = {round(it["f"]["y"], 1) for it in itens}
+    ys = sorted(it["f"]["y"] for it in itens)
+    if len(ys) < 2:
+        return []
+    passo = sorted(b - a for a, b in zip(ys, ys[1:]))[len(ys) // 2 - 1] or 40.0
+    # EM CIMA, O CABECALHO DA TABELA (como no leitor normal): na Meigal de 30/09 as duas primeiras linhas nao
+    # fecharam na foto original, e com "uma linha acima da primeira que fechou" as almondegas ficavam de fora
+    topo = _y_cabecalho(fs)
+    lo = topo if topo is not None and topo < ys[0] else ys[0] - 1.2 * passo
+    hi = ys[-1] + 1.2 * passo
+    fora = []
+    for f in fs:
+        if round(f["y"], 1) in feitas or not (lo <= f["y"] <= hi):
+            continue
+        # como nas linhas que fecham (le_pagina_generica): as caixas que comecam por um numero solto ("10", o
+        # n.o do item) nao sao a referencia
+        cx = [k for k in sorted(f["caixas"], key=lambda c: c[0]) if not NUM.match((k[3].split() or [""])[0])]
+        if not cx or abs(cx[0][0] - x_ref) > 0.025 * largura:
+            continue
+        partes = cx[0][3].strip().split(None, 1)
+        codigo = partes[0].rstrip("-") if partes else ""
+        if len(codigo) < 4 or not (CODIGO_GENERICO.match(codigo.upper()) and re.search(r"\d", codigo)):
+            continue
+        desc = _limpa(" ".join(partes[1:] + [k[3] for k in cx[1:] if not NUM.match((k[3].split() or [""])[0])]))
+        if not re.search(r"[A-Za-z]{3}", desc):
+            continue
+        # do_generico: a altura dos NUMEROS desta linha nao se sabe (e por isso que nao fechou) — o
+        # cloud.alinhamento nao a usa para julgar em que fila esta o valor
+        fora.append({"codigo": codigo, "descricao": desc, "y": f["y"], "do_generico": True})
+    return fora
 
 
 PROMO = re.compile(r"POUPOU|PRECO ORIGINAL|PRE.O ORIGINAL")
@@ -768,6 +1463,11 @@ def _texto_por_baixo(codigos, linhas):
 # "CX6", "CAIXA 12", "Cx24", "CX:6" — tambem colado ao que vem antes ("1.5LTCX6"), que e como o OCR devolve.
 # 21/09: a Frukendy vinha "1.5LTCX:6" e os dois pontos escondiam a caixa
 CAIXA_NA_DESCRICAO = re.compile(r"(?<!\d)C(?:X|AIXA)\s*[-.:]?\s*(\d{1,3})(?!\d)")
+# "(006UN)", "6 UNID", "PACK 4", "PK4", "EMB6": o numero de unidades dito por extenso, em qualquer formato
+# (22/09, "CHEETOSPANDILHA031TIR(006UN)" a 4,92 = 6 x 0,82). NAO entram "PC"/"P" nem numeros soltos: na mesma
+# factura, "CHEETOS FUTEBOLAS130G 6PC03222" custa 1,62 e NAO e uma caixa de 6 — quem decide e a conta.
+UNIDADES_NA_DESCRICAO = re.compile(r"(?<![\d.,])(\d{1,3})\s*(?:UN|UND|UNID|UNIDS|UNIDADES)(?![A-Z])"
+                                   r"|(?<![A-Z])(?:PACK|PK|EMB|EMBALAGEM)\s*[-.:]?\s*(\d{1,3})(?!\d)")
 # "12x90G", "12x80G", "10x500g" — a caixa dita pelo numero de embalagens e o peso de cada uma
 EMBALAGENS_NA_DESCRICAO = re.compile(r"(?<!\d)(\d{1,3})\s*[X*]\s*\d{1,4}(?:[.,]\d+)?\s*(?:G|GR|KG|ML|CL|LT|L|UN)(?![A-Z])")
 
@@ -780,8 +1480,8 @@ def unidades_da_caixa(desc):
     aceite se couber no custo medio da loja (propoe._propoe_artigo) — na Gelpeixe ha linhas "10x800g"
     cujo preco e por KG, e ai a divisao dava errado e e recusada."""
     t = " " + (desc or "").upper() + " "
-    m = CAIXA_NA_DESCRICAO.search(t) or EMBALAGENS_NA_DESCRICAO.search(t)
-    n = int(m.group(1)) if m else 0
+    m = CAIXA_NA_DESCRICAO.search(t) or EMBALAGENS_NA_DESCRICAO.search(t) or UNIDADES_NA_DESCRICAO.search(t)
+    n = int(next((g for g in m.groups() if g), 0)) if m else 0
     return n if 2 <= n <= 144 else None
 
 
@@ -799,9 +1499,14 @@ def precos_por_unidade(linhas):
     que a loja ja tem (propoe._propoe_artigo)."""
     from collections import Counter
     for l in linhas:
-        if l.get("quantidade") and l.get("valor") is not None and (l.get("desconto") or 0) > 0:
-            liquido = round(l["valor"] / l["quantidade"], 4)
-            if abs(liquido - (l.get("preco") or 0)) > 0.005:
+        # O CUSTO E O QUE SE PAGA: valor / quantidade. Com desconto na linha, ou quando o valor e MENOR do que
+        # quantidade x preco sem desconto nenhum lido (02/10, Distrobidos: "0,00" na coluna e "+28,50" numa linha por
+        # baixo — 2 CX x 14,28 = 28,56 mas o valor e 20,42; cada caixa custa 10,21, nao 14,28).
+        q, v, p = l.get("quantidade"), l.get("valor"), l.get("preco") or 0
+        implicito = q and v is not None and p and v < q * p - 0.011
+        if q and v is not None and ((l.get("desconto") or 0) > 0 or implicito):
+            liquido = round(v / q, 4)
+            if abs(liquido - p) > 0.005:
                 l["preco_liquido"] = liquido
         n = unidades_da_caixa(l.get("descricao"))
         if n:
@@ -891,6 +1596,24 @@ def _junta(codigos, contas, passo):
     return linhas, sem_conta, sem_codigo, "proximidade"
 
 
+# LETRA PEQUENA DEMAIS NA FOTO (pedido do Pedro, 01/10). O talao do Recheio de 01/10 fotografado inteiro tinha
+# ~9 pixeis por letra: de 47 linhas o leitor so leu os numeros de 17, e um custo saiu errado (0,80 em vez de
+# 0,63). A mesma folha fotografada de perto (~17 px por letra) deu 46 de 47, todas certas. Mede-se a largura
+# das letras nas caixas que o OCR ja leu (vem da cache, nao custa tempo). Sozinha nao prova nada — paginas de
+# referencia com 6-8 px leram-se bem —, por isso so serve para EXPLICAR uma factura que nao ficou provada.
+LETRA_MINIMA = 11.0
+
+
+def letra_px(caminho):
+    """Largura tipica de uma letra na foto, em pixeis (mediana das caixas com 5 ou mais caracteres)."""
+    try:
+        cx = ocr(caminho)
+    except Exception:                                      # noqa: BLE001 — sem medida, sem aviso
+        return None
+    ws = sorted((c[5] - c[0]) / len(c[3]) for c in cx if len(c[3]) >= 5)
+    return round(ws[len(ws) // 2], 1) if ws else None
+
+
 def le_factura(caminhos):
     import qr_factura as Q
     paginas = [le_pagina(c) for c in caminhos]
@@ -900,7 +1623,15 @@ def le_factura(caminhos):
         if qs:
             qr = qs[0]
             break
-    return {"paginas": paginas, "qr": qr}
+    # sem QR, os totais impressos no papel servem de referencia (totais_factura.py, 25/09)
+    impresso = None
+    if not qr:
+        try:
+            import totais_factura as TF
+            impresso = TF.declarado_impresso([ocr(c) for c in caminhos])
+        except Exception:                                  # noqa: BLE001 — fica sem referencia
+            impresso = None
+    return {"paginas": paginas, "qr": qr, "impresso": impresso}
 
 
 def relatorio(fac):

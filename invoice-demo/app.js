@@ -16,14 +16,14 @@ const pyReady = (async () => {
   await py.loadPackage("sqlite3");
   py.FS.mkdirTree("/home/pyodide/py/invoicepricing");
   for (const m of MODULES) {
-    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=7`)).text());
+    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=8`)).text());
   }
-  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch("py/demo_glue.py?v=7")).text());
+  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch("py/demo_glue.py?v=8")).text());
   py.FS.mkdirTree("/home/pyodide/py/loja");
-  for (const m of ["linhas_factura", "qr_factura"]) {
-    py.FS.writeFile(`/home/pyodide/py/loja/${m}.py`, await (await fetch(`py/loja/${m}.py?v=7`)).text());
+  for (const m of ["linhas_factura", "qr_factura", "loja_config"]) {
+    py.FS.writeFile(`/home/pyodide/py/loja/${m}.py`, await (await fetch(`py/loja/${m}.py?v=8`)).text());
   }
-  py.FS.writeFile("/home/pyodide/py/loja_glue.py", await (await fetch("py/loja_glue.py?v=7")).text());
+  py.FS.writeFile("/home/pyodide/py/loja_glue.py", await (await fetch("py/loja_glue.py?v=8")).text());
   py.runPython("import sys; sys.path.insert(0, '/home/pyodide/py'); import demo_glue, loja_glue; demo_glue.reset()");
   return py;
 })();
