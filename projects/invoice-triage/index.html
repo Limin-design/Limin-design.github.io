@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice triage workflow · Pedro Mariano</title>
+<meta name="description" content="An n8n workflow that summarises each new supplier invoice, logs it and routes it to 'ready to approve' or 'needs a person', without ever writing a price.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css">
+<link rel="stylesheet" href="../../assets/page.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 04</div>
+      <h1>Invoice triage workflow</h1>
+      <p class="lead">Every new supplier invoice is read, checked, logged and sent to the right inbox: "ready to
+        approve" or "needs a person", with the reasons. The workflow removes the reading and checking. It never
+        changes a price.</p>
+      <div class="actions">
+        <a class="btn solid" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/automation">Workflow file <span class="arrow">→</span></a>
+        <a class="btn" href="../invoice-pricing/">The system behind it</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The flow</p>
+      <div class="prose">
+        <h2>Seven nodes and one decision.</h2>
+        <div class="flow" role="img" aria-label="New invoice, read-only summary, log to Google Sheets, then an email: ready to approve, or needs a person">
+          <div class="node"><b>New invoice in the inbox folder</b><span>n8n watches the folder</span></div>
+          <div class="arrow-down"></div>
+          <div class="node"><b>Read-only summary</b><span><code>python -m invoicepricing summary &lt;file&gt;</code> returns JSON (proved or not, problems, decisions needed), and a code node parses it</span></div>
+          <div class="arrow-down"></div>
+          <div class="node"><b>Log to Google Sheets</b><span>one row per invoice: a running log of everything that came in</span></div>
+          <div class="arrow-down"></div>
+          <div class="node"><b>Proved, and nothing to decide?</b><span>the only branch in the workflow</span></div>
+          <div class="arrow-down"></div>
+          <div class="split">
+            <div class="node out"><b>Yes → "Ready to approve"</b><span>email with the totals; one tap in the app</span></div>
+            <div class="node out"><b>No → "Needs a person"</b><span>email listing each reason, product by product</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Example</p>
+      <div class="prose">
+        <h2>What a person receives.</h2>
+        <p>The summary for a test invoice with traps in it: the totals are proved, but three products need a decision,
+          so it goes to a person.</p>
+<pre class="code">{"invoice": "FT 2026A/1430", "supplier_nif": "509000003", "total": 44.21,
+ "proven": true, "problems": [], "rows_not_read": 0,
+ "actions": {"needs_decision": 3, "cost_down": 1},
+ "needs_person": [
+   "P0027: several lines for the same product with different costs: choose one",
+   "P0128: generic product (25 barcodes): one line cannot set its cost", "..."],
+ "ready_for_one_tap_approval": false}</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Why it stops there</p>
+      <div class="prose">
+        <h2>Prices are a business decision.</h2>
+        <p>Automating the write would have been easy. I left it out on purpose: the workflow only calls a read-only
+          command, and the one way to change the database stays the app's write path, with simulation, a verified
+          backup and an undo log. If the workflow ever misbehaves, the worst outcome is a wrong email.</p>
+        <ul class="chips"><li>n8n</li><li>Python CLI</li><li>JSON</li><li>Google Sheets</li><li>Gmail</li><li>Docker</li></ul>
+        <p class="caption">The workflow file uses placeholder addresses and sheet IDs; it runs with your own Google
+          credentials.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../pricing-dashboard/"><small>← Previous project</small><strong>Pricing health dashboard</strong></a>
+    <a href="../kronos-study/"><small>Next project →</small><strong>Does an AI model predict Bitcoin?</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>All demo data is synthetic. The store's own data stays private.</span>
+  </div>
+</footer>
+</body>
+</html>

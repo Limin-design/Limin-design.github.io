@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StratForge · Pedro Mariano</title>
+<meta name="description" content="A trading strategy workbench that backtests with costs, tests whether a result is overfit, and has an AI analyst that calls the engine instead of guessing.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css">
+<link rel="stylesheet" href="../../assets/page.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 02</div>
+      <h1>StratForge</h1>
+      <p class="lead">A trading strategy workbench built around one question: is this backtest telling the truth? It
+        tests strategies with fees and slippage, checks whether a good result survives data it was not fitted on, and
+        has an AI analyst that asks the engine instead of making numbers up.</p>
+      <div class="actions">
+        <a class="btn solid" href="../../stratforge/">Open the app <span class="arrow">→</span></a>
+        <a class="btn" href="https://github.com/Limin-design/stratforge">Code</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>4</b><span>overfitting tests: Monte Carlo, out-of-sample, walk-forward, deflated Sharpe</span></div>
+        <div class="stat"><b>Live</b><span>Bitcoin candles streamed from Binance, from 1 minute to 1 week</span></div>
+        <div class="stat"><b>12</b><span>tools the AI analyst can call, from backtests to regime checks</span></div>
+        <div class="stat"><b>0</b><span>API keys stored in plain text: they are encrypted on the device</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap">
+      <div class="figure dark"><img src="../../assets/shots/stratforge.jpg" alt="StratForge: a Bitcoin hourly chart, the data hub and the analyst panel" width="1800" height="1075" loading="lazy"></div>
+      <p class="caption">One hour Bitcoin candles loaded from Binance, the data hub and the analyst, in the web version.</p>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The problem</p>
+      <div class="prose">
+        <h2>Most backtests look great because they were tuned until they did.</h2>
+        <p>Try enough parameters on the same price history and one of them will look profitable by chance. Most retail
+          tools show that lucky result as if it were an edge. I wanted a tool whose default answer is "prove it".</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">What it does</p>
+      <div class="prose">
+        <h2>Build, test, then try to break it.</h2>
+        <ol class="steps">
+          <li><b>Strategies are data, not code</b><span>A strategy is a JSON document checked against a schema, so an AI
+            agent can write one without being able to run arbitrary code.</span></li>
+          <li><b>Honest backtests</b><span>Signals on the bar's close, fills at the next bar's open (no look-ahead),
+            stop-loss checked before take-profit inside a bar, and fees and slippage on every trade.</span></li>
+          <li><b>Overfitting tests</b><span>Shuffled trade order (Monte Carlo), a held-out final 30% of the data,
+            walk-forward folds, and the deflated Sharpe ratio, which discounts the result by the number of variants
+            tried.</span></li>
+          <li><b>A verdict with reasons</b><span>A grade from A to F that says exactly why, for example "out-of-sample
+            Sharpe collapses from 1.80 to 0.20 — likely overfit".</span></li>
+          <li><b>Live market</b><span>A Binance WebSocket stream updates the last candle in real time, with timeframe
+            buttons from 1 minute to 1 week.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The analyst</p>
+      <div class="prose">
+        <h2>An AI that calls the engine instead of guessing.</h2>
+        <p>Language models are bad at arithmetic and good at sounding sure. So the analyst never computes a result
+          itself: it calls the same deterministic engine the user does, through tools such as
+          <code>backtest_and_validate</code>, <code>optimize_strategy</code>, <code>assess_regimes</code> and
+          <code>get_live_market</code>, and reports what came back.</p>
+        <ul>
+          <li>Every message carries a snapshot of the chart the user is looking at: symbol, timeframe, last candles
+            and indicators.</li>
+          <li>A "watch the chart" mode comments on each new closed candle.</li>
+          <li>It works with the user's own model: OpenAI, Anthropic, Gemini, Azure OpenAI, OpenRouter, or a local
+            model through Ollama or LM Studio. The key is encrypted with a passphrase and never leaves the device.</li>
+          <li>It can also ask Kronos, an open model trained only on price candles, for a forecast, and it is told what
+            my <a href="../kronos-study/">out-of-sample test of that model</a> found.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Built with</p>
+      <div class="prose">
+        <ul class="chips">
+          <li>TypeScript</li><li>React</li><li>Vite</li><li>Zod</li><li>Lightweight Charts</li><li>Tauri 2</li>
+          <li>WebSocket</li><li>LLM tool calling</li><li>GitHub Actions</li>
+        </ul>
+        <p>A monorepo with the strategy schema, the backtest engine, the data importers (Binance, MetaTrader 5 and CSV)
+          and the app, which also builds as a Windows desktop program with Tauri.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../invoice-pricing/"><small>← Previous project</small><strong>Invoice → Price</strong></a>
+    <a href="../pricing-dashboard/"><small>Next project →</small><strong>Pricing health dashboard</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>Market data from Binance's public API. Nothing here is investment advice.</span>
+  </div>
+</footer>
+</body>
+</html>

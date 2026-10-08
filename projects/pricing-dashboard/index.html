@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing health dashboard · Pedro Mariano</title>
+<meta name="description" content="A Power BI model that shows where a store is losing margin because prices fell behind costs.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css">
+<link rel="stylesheet" href="../../assets/page.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 03</div>
+      <h1>Pricing health dashboard</h1>
+      <p class="lead">One question for the owner of a small store: where am I losing margin because my prices fell
+        behind my costs? The answer is a ranked to-do list for the next price review.</p>
+      <div class="actions">
+        <a class="btn solid" href="https://github.com/Limin-design/invoice-pricing-demo/tree/main/powerbi">Model and data <span class="arrow">→</span></a>
+        <a class="btn" href="../invoice-pricing/">Where the data comes from</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>6</b><span>tables in a star schema, with one-way relationships</span></div>
+        <div class="stat"><b>10</b><span>DAX measures, each on a stated basis</span></div>
+        <div class="stat"><b>3</b><span>report pages: overview, below cost, price changes</span></div>
+        <div class="stat"><b>90 days</b><span>window for money lost selling below cost</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap">
+      <div class="figure"><img src="../../assets/dashboard.png" alt="Pricing health dashboard: revenue, gross margin, stale costs, money lost below cost, markup by family and the below-cost list" width="1520" height="957" loading="lazy"></div>
+      <p class="caption">The overview and the below-cost list, on the demo's synthetic store (a year of sales for 128 products).</p>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">What it shows</p>
+      <div class="prose">
+        <h2>Four numbers, then the list.</h2>
+        <ul>
+          <li><strong>Revenue</strong> and <strong>gross margin %</strong>, on revenue without VAT.</li>
+          <li><strong>Revenue on costs older than two years</strong>: how much of the business is priced on costs nobody
+            has checked.</li>
+          <li><strong>Money lost selling below cost</strong> in the last 90 days.</li>
+          <li><strong>Markup by product family</strong> against the family's usual markup, in red where it is below.</li>
+        </ul>
+        <p>The table under it is the point of the report: products sold below cost, ranked by money lost. In the real
+          store, the same idea uses audit materiality (ISA 320) to decide what is worth a person's time.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Data model</p>
+      <div class="prose">
+        <h2>A star schema, kept boring on purpose.</h2>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Table</th><th>One row per</th><th>Key</th></tr></thead>
+            <tbody>
+              <tr><td>fact_sales</td><td>product and day</td><td>product_code, day</td></tr>
+              <tr><td>fact_price_changes</td><td>price written or undone</td><td>product_code</td></tr>
+              <tr><td>dim_product</td><td>product</td><td>code</td></tr>
+              <tr><td>dim_family</td><td>product family, with its usual margin</td><td>family</td></tr>
+              <tr><td>below_cost_90d</td><td>product sold below cost in 90 days</td><td>code</td></tr>
+              <tr><td>Calendar</td><td>day (built in DAX)</td><td>Date</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>Measures</h3>
+<pre class="code">Revenue ex VAT = SUMX ( fact_sales, fact_sales[revenue] / ( 1 + RELATED ( dim_product[vat] ) / 100 ) )
+Cost of goods  = SUMX ( fact_sales, fact_sales[qty] * RELATED ( dim_product[cost] ) )
+Gross margin % = DIVIDE ( [Revenue ex VAT] - [Cost of goods], [Revenue ex VAT] )
+Markup %       = DIVIDE ( [Revenue ex VAT], [Cost of goods] ) - 1
+<span class="c">-- same basis as dim_family[usual_margin]: a markup over cost, not a margin on sales</span>
+Stale cost revenue % =
+    DIVIDE ( CALCULATE ( [Revenue], dim_product[cost_date] &lt; DATE ( 2024, 9, 30 ) ), [Revenue] )</pre>
+        <h3>A detail that matters</h3>
+        <p>Store owners say "margin" for two different things. The family targets are a <strong>markup over
+          cost</strong>, so they are compared with Markup %, never with Gross margin %. Mixing the two makes every family
+          look worse than it is.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">How it is built</p>
+      <div class="prose">
+        <p>The data comes from the demo's own report command, which writes the CSV files the model loads. The image
+          above is drawn by a small Python script that computes the same measures with pandas, so the numbers can be
+          checked without Power BI. The README has the model, the DAX and the page layout to rebuild it in Power BI
+          Desktop.</p>
+        <ul class="chips"><li>Power BI</li><li>DAX</li><li>Power Query</li><li>Star schema</li><li>pandas</li><li>matplotlib</li></ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../stratforge/"><small>← Previous project</small><strong>StratForge</strong></a>
+    <a href="../invoice-triage/"><small>Next project →</small><strong>Invoice triage workflow</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>All demo data is synthetic. The store's own data stays private.</span>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kronos on Bitcoin · Pedro Mariano</title>
+<meta name="description" content="An out-of-sample test of Kronos, an open model trained only on price candles, on a year of Bitcoin data it had never seen.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css">
+<link rel="stylesheet" href="../../assets/page.css">
+<style>
+  .bars { display: grid; gap: 12px; margin: 24px 0 0; }
+  .bar { display: grid; grid-template-columns: 120px 1fr 48px; align-items: center; gap: 14px; font-size: 14px; color: var(--muted); }
+  .bar .track { position: relative; height: 10px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; background: #d9d9d9; border-radius: 999px; }
+  .bar .target { position: absolute; top: -6px; bottom: -6px; left: 80%; width: 2px; background: var(--text); }
+  .bar b { color: var(--text); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  @media (max-width: 560px) { .bar { grid-template-columns: 92px 1fr 40px; font-size: 13px; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 05</div>
+      <h1>Does an AI model predict Bitcoin?</h1>
+      <p class="lead">Kronos is an open foundation model trained only on price candles from more than 45 exchanges. I
+        connected it to StratForge, ran it on a GPU and tested it on a year of Bitcoin prices it had never seen. It
+        showed no reliable edge, and its uncertainty band was far too narrow.</p>
+      <div class="actions">
+        <a class="btn solid" href="https://github.com/Limin-design/stratforge/tree/main/tools/kronos-server">Code and full results <span class="arrow">→</span></a>
+        <a class="btn" href="../stratforge/">StratForge</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>2,008</b><span>forecasts, at five combinations of candle size and horizon</span></div>
+        <div class="stat"><b>13 months</b><span>of BTCUSDT after the model's paper, so unseen data</span></div>
+        <div class="stat"><b>~3 s</b><span>for 20 sampled paths on an RTX 5060, against ~40 s for 5 on a CPU</span></div>
+        <div class="stat"><b>No edge</b><span>"no change" beat it on the size of the move at every horizon</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Method</p>
+      <div class="prose">
+        <h2>Set the test up so it can fail.</h2>
+        <ul>
+          <li><strong>Unseen data only</strong>: Bitcoin from 1 September 2025, after the Kronos paper (August 2025).</li>
+          <li><strong>Non-overlapping forecasts</strong>, 400 candles of context each, 20 sampled future paths per forecast.</li>
+          <li><strong>Simple baselines</strong>: "always the more common direction", "the next move repeats the last one"
+            (momentum), and "no change".</li>
+          <li><strong>Calibration</strong>: the middle 80% of paths should hold the real price 80% of the time.</li>
+          <li><strong>Many comparisons, one correction</strong>: with about ten tests, one result below p = 0.05 is
+            expected by chance.</li>
+        </ul>
+        <p>The library averages its sampled paths internally, so I wrote a small wrapper that keeps every path. Without
+          it there is no band to test.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Results</p>
+      <div class="prose">
+        <h2>Right about the direction half the time.</h2>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Candles</th><th>Ahead</th><th>Forecasts</th><th>Kronos direction</th><th>Base rate</th><th>Momentum</th><th>Error vs "no change"</th></tr></thead>
+            <tbody>
+              <tr><td>1 h</td><td>1 h</td><td>402</td><td>48.3%</td><td>51.5%</td><td>47.3%</td><td>0.33% vs 0.29%</td></tr>
+              <tr><td>1 h</td><td>6 h</td><td>402</td><td>55.5%</td><td>50.5%</td><td>48.3%</td><td>0.76% vs 0.69%</td></tr>
+              <tr><td>1 h</td><td>24 h</td><td>402</td><td>48.8%</td><td>51.0%</td><td>51.2%</td><td>2.67% vs 1.58%</td></tr>
+              <tr><td>4 h</td><td>4 h</td><td>401</td><td>55.1%</td><td>50.1%</td><td>46.9%</td><td>0.71% vs 0.57%</td></tr>
+              <tr><td>4 h</td><td>24 h</td><td>401</td><td>46.4%</td><td>50.9%</td><td>51.1%</td><td>1.87% vs 1.58%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">The best row (4 h candles, next candle, p = 0.026) does not survive a correction for about ten
+          comparisons.</p>
+
+        <h3>How often the 80% band held the real price</h3>
+        <div class="bars">
+          <div class="bar"><span>1 h → 1 h</span><div class="track"><div class="fill" style="width:57%"></div><div class="target"></div></div><b>57%</b></div>
+          <div class="bar"><span>1 h → 6 h</span><div class="track"><div class="fill" style="width:53%"></div><div class="target"></div></div><b>53%</b></div>
+          <div class="bar"><span>1 h → 24 h</span><div class="track"><div class="fill" style="width:28%"></div><div class="target"></div></div><b>28%</b></div>
+          <div class="bar"><span>4 h → 4 h</span><div class="track"><div class="fill" style="width:61%"></div><div class="target"></div></div><b>61%</b></div>
+          <div class="bar"><span>4 h → 24 h</span><div class="track"><div class="fill" style="width:46%"></div><div class="target"></div></div><b>46%</b></div>
+        </div>
+        <p class="caption">The white line is the 80% target. The paths moved about 0.35% an hour against 0.57% in the real
+          data, so the band gets worse the further ahead it looks.</p>
+
+        <h3>And as a trading signal</h3>
+        <p>Going long or short on the sign of the median path, with 0.1% costs per round trip, lost 55.1% against 23.0%
+          for simply holding (1 h candles, 24 h ahead) and 63.3% against 21.0% (4 h candles, 24 h ahead).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">What I did with it</p>
+      <div class="prose">
+        <h2>Ship the model, and the warning with it.</h2>
+        <p>Kronos stays in StratForge as one more input: a dashed median line and a band on the chart, and a tool the
+          analyst can call. The tooltip, the analyst's instructions and the README all say what this test found, so
+          nobody reads the line as a signal.</p>
+        <p>The negative result is the useful one: it keeps anyone using the app from trusting a confident-looking
+          forecast.</p>
+        <ul class="chips"><li>Python</li><li>PyTorch</li><li>CUDA</li><li>Hugging Face</li><li>pandas</li><li>Statistics</li><li>Binance API</li></ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../invoice-triage/"><small>← Previous project</small><strong>Invoice triage workflow</strong></a>
+    <a href="../../about/"><small>About me →</small><strong>Pedro Mariano</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>Nothing here is investment advice.</span>
+  </div>
+</footer>
+</body>
+</html>

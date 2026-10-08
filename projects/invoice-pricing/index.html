@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice → Price · Pedro Mariano</title>
+<meta name="description" content="How a family minimarket's supplier invoices are read from photos, proved against the Portuguese fiscal QR code and turned into price proposals a person approves.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css">
+<link rel="stylesheet" href="../../assets/page.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 01</div>
+      <h1>Invoice → Price</h1>
+      <p class="lead">A family minimarket used to retype supplier invoices and work out new prices by hand. I built the
+        system that reads the invoice photos, proves every line against the fiscal QR code and proposes new prices
+        for a person to approve.</p>
+      <div class="actions">
+        <a class="btn solid" href="../../invoice-demo/">Try it with your phone <span class="arrow">→</span></a>
+        <a class="btn" href="https://github.com/Limin-design/precos-loja">Store program</a>
+        <a class="btn" href="https://github.com/Limin-design/invoice-pricing-demo">English demo code</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>16,840</b><span>products in the store's back-office, with sales since 2007</span></div>
+        <div class="stat"><b>~3,300</b><span>lines of Python and PowerShell in the store program</span></div>
+        <div class="stat"><b>30 s</b><span>to read and prove a 3-page, 32-line invoice in a browser</span></div>
+        <div class="stat"><b>0</b><span>prices written without a person approving them</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The problem</p>
+      <div class="prose">
+        <h2>Prices fell behind costs, one invoice at a time.</h2>
+        <p>The store buys from more than ten suppliers, and costs change every week. Each invoice had to be typed into the
+          back-office (an MS Access database) and each shelf price recalculated, while the checkout runs on a separate
+          SQL Server database. With no time to do it properly, some products ended up selling below cost.</p>
+        <p>The goal was not "read invoices with AI". It was: <strong>every cost in the system is the cost on the
+          invoice, every price keeps the margin it should, and nothing changes without someone saying yes.</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">How it works</p>
+      <div class="prose">
+        <h2>Six steps, each one checkable.</h2>
+        <ol class="steps">
+          <li><b>Read</b><span>Local OCR on the photos. In each row it looks for the three numbers where quantity × price
+            = amount: the sum finds the columns on any invoice layout and proves the OCR did not swap a digit.</span></li>
+          <li><b>Prove</b><span>The lines must add up to what the fiscal QR code declares, VAT rate by VAT rate, and to
+            the running total carried from page to page.</span></li>
+          <li><b>Link</b><span>Each line is tied to a product in the store: by confirmed links, by code, or by
+            suggestions a person confirms.</span></li>
+          <li><b>Propose</b><span>Cost up: restore the usual margin of the product's family, rounded up to 5 cents. Cost down: keep the price
+            and let the owner decide. Promotions and unusual cases go to a person.</span></li>
+          <li><b>Approve</b><span>A phone app, protected by a PIN, where the invoice is photographed and each change is
+            approved.</span></li>
+          <li><b>Write</b><span>Simulate first and write only what was simulated: a verified backup, one transaction, an
+            automatic stop if the product changed in the meantime, and a log to undo every change.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Why it can be trusted</p>
+      <div class="prose">
+        <h2>The invoice proves the reading, not the other way round.</h2>
+        <p>An invoice is <strong>proved</strong> only when three things hold at once: the sums per VAT rate match the QR
+          code, no product code was left without a line, and no line was left without a code. Each condition alone can
+          be fooled; together they would need two errors that cancel to the cent at every rate.</p>
+        <p>An unproved invoice is never thrown away and never trusted: it goes to a person with the reason ("the 23%
+          lines are 27.64 € short", "the photo was taken from too far"). Prices only come pre-approved on a proved
+          invoice.</p>
+        <p>Before going live I tested every pricing rule on real invoices with the owner, and two independent code
+          audits went through the program. Each defect they found became a regression test, so it cannot come back.</p>
+        <h3>A rule I learned the hard way</h3>
+        <p>More lines is not the same as correct lines. An early version kept whichever reading found more rows; on one
+          invoice that "won" four lines and broke the totals by 25 €. Since then, when two readings disagree, the QR
+          code decides.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The live demo</p>
+      <div class="prose">
+        <h2>The store's reader, running in your browser.</h2>
+        <p>The demo uses the same OCR models as the store (PaddleOCR PP-OCRv4, in WebAssembly) and the store program's
+          own Python modules, run by Pyodide: the line reader, the QR reader and the proof. Nothing is uploaded; the
+          photo never leaves the phone.</p>
+        <div class="figure phone"><img src="../../assets/shots/invoice-demo.jpg" alt="The demo on a phone: a test invoice proved against its QR code at 6% and 23% VAT" width="840" height="1800" loading="lazy"></div>
+        <p class="caption">The demo with a synthetic test invoice: both VAT rates match the QR code, so the invoice is proved.</p>
+        <p>Two things differ from the store, both because of the OCR engine. The browser has no model to flatten a
+          curved page, so each page is read once instead of twice. And the browser's text detector sometimes keeps a
+          whole table row in one box, so the invoice is read both ways and the QR code picks the reading it proves.</p>
+        <p>Tested on real supplier invoices photographed at the store:</p>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Invoice</th><th>Photos</th><th>Lines read</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>Cash &amp; carry, groceries</td><td>3 pages</td><td>32 of 32</td><td class="good">Proved at 6% and 23%</td></tr>
+              <tr><td>Cash &amp; carry, tobacco</td><td>1</td><td>1 of 1</td><td class="good">Proved (not subject to VAT)</td></tr>
+              <tr><td>Lighting supplier, photo taken sideways</td><td>1</td><td>5 of 5</td><td class="good">Proved at 23%</td></tr>
+              <tr><td>Sweets distributor, photo from far away</td><td>1</td><td>6 of 10</td><td>Not proved: asks for a closer photo</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">The last one is the system doing its job: it does not guess the four lines it could not read.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Built with</p>
+      <div class="prose">
+        <ul class="chips">
+          <li>Python</li><li>PowerShell</li><li>MS Access (Jet)</li><li>SQL Server</li><li>RapidOCR / PaddleOCR</li>
+          <li>Fiscal QR (Portaria 195/2020)</li><li>pytest</li><li>Pyodide</li><li>WebAssembly</li>
+        </ul>
+        <p>The public repository <a href="https://github.com/Limin-design/precos-loja">precos-loja</a> has the store
+          program's code (in Portuguese), without the store's data. The
+          <a href="https://github.com/Limin-design/invoice-pricing-demo">English demo</a> rewrites the core ideas on a
+          synthetic store, with 22 tests, a <a href="../pricing-dashboard/">Power BI model</a> and an
+          <a href="../invoice-triage/">n8n workflow</a>.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../../about/"><small>← About me</small><strong>Pedro Mariano</strong></a>
+    <a href="../stratforge/"><small>Next project →</small><strong>StratForge</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>All demo data is synthetic. The store's own data stays private.</span>
+  </div>
+</footer>
+</body>
+</html>
