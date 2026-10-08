@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sys
+from types import SimpleNamespace
 
 sys.path.insert(0, "/home/pyodide/py")
 os.makedirs("/home/pyodide/work", exist_ok=True)
@@ -64,23 +65,78 @@ def run(cmd, text):
     return out
 
 
+def _lenient_qr(text):
+    """Read the bases per VAT rate even when the QR's own totals do not close.
+
+    The strict parser refuses a QR whose VAT per rate does not add up to the total tax. On real
+    invoices that happens for a legitimate reason: the total tax (N) can include stamp duty
+    (Imposto do Selo). The bases per rate are still what the lines must add up to.
+    """
+    fields = {}
+    for part in text.strip().split("*"):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            fields[k.strip()] = v.strip()
+
+    def amount(key):
+        try:
+            return float(fields.get(key, "0") or "0")
+        except ValueError:
+            return 0.0
+
+    bases = {rate: amount(b) for rate, (b, _) in qr.RATE_FIELDS.items() if b in fields}
+    date = fields.get("F", "")
+    return SimpleNamespace(
+        supplier_nif=fields.get("A", "?"), customer_nif=fields.get("B", ""), doc_type=fields.get("D", ""),
+        date=date if len(date) == 8 else "00000000", number=fields.get("G", "?"), bases=bases,
+        exempt=amount("I2"), not_subject=amount("L"), total_vat=amount("N"), total=amount("O"),
+    )
+
+
+# A VAT rate written with decimals or a leading zero: "6,00", "06", "23,00%", "13.0".
+_VAT_TOKEN = re.compile(r"^0?(6|13|23)(?:[,.]0{1,2})?%?$")
+
+
+def _vat_from_row(text, value):
+    """The VAT rate printed after the line value, in the forms the strict reader leaves out."""
+    tokens = text.split()
+    value_txt = f"{value:.2f}".replace(".", ",")
+    after = tokens[tokens.index(value_txt) + 1:] if value_txt in tokens else tokens
+    rates = {int(m.group(1)) for t in after if (m := _VAT_TOKEN.match(t))}
+    return rates.pop() if len(rates) == 1 else None
+
+
 def read_real(qr_text, rows_json, margin):
     rows = [r for r in json.loads(rows_json) if r.strip()]
-    out = {"qr": None, "qr_error": None, "proof": None}
+    out = {"qr": None, "qr_error": None, "qr_warning": None, "proof": None}
     fiscal = None
     if qr_text:
         try:
             fiscal = qr.parse(qr_text)
+        except qr.QRError as e:
+            fiscal = _lenient_qr(qr_text)
+            if fiscal.bases:
+                out["qr_warning"] = ("O QR não fecha as contas consigo próprio: o total de impostos não é só IVA. "
+                                     "Costuma ser Imposto do Selo. As bases por taxa continuam a servir de prova.")
+            else:
+                fiscal, out["qr_error"] = None, str(e)
+        if fiscal:
             out["qr"] = {
                 "supplier_nif": fiscal.supplier_nif, "number": fiscal.number, "doc_type": fiscal.doc_type,
                 "date": f"{fiscal.date[6:8]}/{fiscal.date[4:6]}/{fiscal.date[:4]}", "total": fiscal.total,
                 "total_vat": fiscal.total_vat, "bases": {str(k): v for k, v in fiscal.bases.items()},
+                "not_subject": fiscal.not_subject, "exempt": fiscal.exempt,
             }
-        except qr.QRError as e:
-            out["qr_error"] = str(e)
 
     product_rows = [r for r in rows if not _SUMMARY_ROW.search(r)]
     parsed, rejected = lines.parse_invoice(product_rows)
+
+    for ln in parsed:
+        if ln.vat is None:
+            rate = _vat_from_row(product_rows[ln.row], ln.value)
+            if rate and (not fiscal or rate in fiscal.bases):
+                ln.vat = rate
+                ln.notes.append(f"IVA {rate}% lido na linha")
 
     # With a single VAT rate on the invoice, a line whose rate was not read can only be that rate.
     if fiscal and len(fiscal.bases) == 1:

@@ -15,9 +15,9 @@ const pyReady = (async () => {
   await py.loadPackage("sqlite3");
   py.FS.mkdirTree("/home/pyodide/py/invoicepricing");
   for (const m of MODULES) {
-    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=5`)).text());
+    py.FS.writeFile(`/home/pyodide/py/invoicepricing/${m}.py`, await (await fetch(`py/invoicepricing/${m}.py?v=6`)).text());
   }
-  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch("py/demo_glue.py?v=5")).text());
+  py.FS.writeFile("/home/pyodide/py/demo_glue.py", await (await fetch("py/demo_glue.py?v=6")).text());
   py.runPython("import sys; sys.path.insert(0, '/home/pyodide/py'); import demo_glue; demo_glue.reset()");
   return py;
 })();
@@ -86,8 +86,48 @@ function crop(src, x, y, w, h, scale = 1) {
 }
 
 // ---------- fiscal QR ----------
-const looksFiscal = (t) => typeof t === "string" && /(^|\*)A:\d{9}\*/.test(t) && t.includes("*O:");
+// Only the fiscal QR counts: some suppliers print an advertising QR in the header too.
+const looksFiscal = (t) => typeof t === "string" && /^A:\d{9}\*/.test(t.trim()) && t.includes("*O:");
+
+// Greyscale with automatic contrast (2% of the darkest and lightest pixels clipped). On a real
+// photo with soft shadows the QR modules come out grey, and the raw image does not read.
+function autocontrast(src) {
+  const c = crop(src, 0, 0, src.width, src.height, 1);
+  const g = c.getContext("2d");
+  const img = g.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) hist[(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0]++;
+  const n = d.length / 4, cut = n * 0.02;
+  let lo = 0, hi = 255, acc = 0;
+  while (lo < 255 && (acc += hist[lo]) < cut) lo++;
+  acc = 0;
+  while (hi > 0 && (acc += hist[hi]) < cut) hi--;
+  const span = Math.max(1, hi - lo);
+  for (let i = 0; i < d.length; i += 4) {
+    const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    d[i] = d[i + 1] = d[i + 2] = Math.max(0, Math.min(255, ((v - lo) * 255) / span));
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+async function zxingRead(canvas) {
+  if (!window.ZXingWASM) return null;
+  const img = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+  const found = await ZXingWASM.readBarcodes(img, { formats: ["QRCode"], tryHarder: true, maxNumberOfSymbols: 4 });
+  return found.map((f) => f.text).find(looksFiscal) || null;
+}
+
 async function findQR(canvas) {
+  // As in the store app: the photo as it is, then greyscale with automatic contrast, then half size.
+  const versions = [() => canvas, () => autocontrast(canvas), () => crop(canvas, 0, 0, canvas.width, canvas.height, 0.5)];
+  for (const make of versions) {
+    try {
+      const hit = await zxingRead(make());
+      if (hit) return hit;
+    } catch { /* try the next version, then jsQR */ }
+  }
   if ("BarcodeDetector" in window) {
     try {
       const found = await new BarcodeDetector({ formats: ["qr_code"] }).detect(canvas);
@@ -159,7 +199,8 @@ $("botao-ler").onclick = async () => {
       const canvas = await toCanvas(photos[i].file, 2400);
       if (!qrText) {
         stage(`a procurar o código QR (${page})…`);
-        qrText = await findQR(canvas);
+        // The fiscal QR is dense: look for it in a sharper copy than the one used for the text.
+        qrText = await findQR(await toCanvas(photos[i].file, 3600));
       }
       stage(`a ler o texto (${page})…`);
       ocrProgress = (p) => stage(`a ler o texto (${page}): ${Math.round(p * 100)}%`);
@@ -202,7 +243,9 @@ function renderReal(r, rows) {
         <div class="caixinha"><b class="numero">${euro(q.total)}</b><span>total da factura</span></div>
         <div class="caixinha"><b class="numero">${euro(q.total_vat)}</b><span>IVA</span></div>
         <div class="caixinha"><b>${Object.keys(q.bases).map((k) => k + "%").join(" · ") || "—"}</b><span>taxas de IVA</span></div>
-      </div>`;
+      </div>
+      ${q.not_subject ? `<p class="suave" style="margin:10px 0 0">Não sujeito a IVA (ex.: tabaco): ${euro(q.not_subject)} — fica fora da prova por taxa.</p>` : ""}
+      ${r.qr_warning ? `<div class="aviso-caixa">${esc(r.qr_warning)}</div>` : ""}`;
   } else {
     $("cartao-factura").innerHTML = `<h2>Código QR</h2><div class="erro">${
       r.qr_error ? "O código QR foi lido mas não bate certo consigo próprio: " + esc(r.qr_error)
