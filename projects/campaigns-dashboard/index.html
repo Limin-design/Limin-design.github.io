@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campaign performance dashboard · Pedro Mariano</title>
+<meta name="description" content="A Power BI report on the marketing campaigns of an energy retailer: star schema, DAX measures and what the numbers say.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css?v=3">
+<link rel="stylesheet" href="../../assets/page.css">
+<link rel="stylesheet" href="dashboard.css?v=1">
+<script src="data.js?v=1" defer></script>
+<script src="dashboard.js?v=1" defer></script>
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 07</div>
+      <h1>Campaign performance dashboard</h1>
+      <p class="lead">An energy retailer runs six campaigns a year across email, phone, shops and online. Which ones
+        actually bring customers, where, and through which channel? A Power BI report built from scratch to answer it.</p>
+      <div class="actions">
+        <a class="btn solid" href="campanhas_energia.pbix" download>Download the .pbix <span class="arrow">→</span></a>
+        <a class="btn" href="campanhas_energia.xlsx" download>The data (Excel)</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>5</b><span>tables in a star schema: one fact table, four dimensions</span></div>
+        <div class="stat"><b>10</b><span>DAX measures, from a conversion rate to time intelligence</span></div>
+        <div class="stat"><b>14,283</b><span>contacts over twelve months, October 2025 to September 2026</span></div>
+        <div class="stat"><b>7.4%</b><span>overall conversion rate, weighted by volume</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap">
+      <div id="pbi" class="pbi" aria-label="Interactive replica of the Power BI report"></div>
+      <p class="caption">Try it: click a channel, a product, a month or a cell, and every other visual filters, as in Power BI.
+        This is a web replica of the report, built in JavaScript on the same data and the same measures, because the
+        original lives in Power BI and cannot be embedded publicly. Synthetic data, generated for the exercise.</p>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap">
+      <div class="figure"><img src="dashboard.png" alt="The original report in Power BI: contacts, conversions, conversion rate and revenue; campaign by region matrix; conversions by month; conversion rate by channel and by product" width="1400" height="784" loading="lazy"></div>
+      <p class="caption">The original report in Power BI. The .pbix above opens it with the model and every measure.</p>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">What it shows</p>
+      <div class="prose">
+        <h2>Four numbers, then the why.</h2>
+        <ul>
+          <li><strong>Contacts, conversions, conversion rate and revenue</strong> at the top.</li>
+          <li><strong>Conversions by month</strong>, on a calendar table so the months run in order across two years.</li>
+          <li><strong>Conversion rate by channel and by product</strong>, sorted so the answer is the first bar.</li>
+          <li><strong>Campaign by region</strong>, with the rate coloured and the number of contacts next to it.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Findings</p>
+      <div class="prose">
+        <h2>What the numbers say, and what they don't.</h2>
+        <ul>
+          <li><strong>Electricity and gas together convert best:</strong> 8.2%, against 7.4% for gas and 6.6% for
+            electricity alone, and they bring about two thirds of the revenue.</li>
+          <li><strong>Shops convert best, phone brings the most customers.</strong> Shops convert 19.6% of contacts,
+            phone brings the most conversions (370), and email, with the most contacts, converts only 3.8%. The highest
+            rate and the most conversions are not the same channel, which is why the report shows both.</li>
+          <li><strong>The best cell is not a conclusion.</strong> The top campaign-region rate (10.3%) comes from only 117
+            contacts; a few conversions either way would put it back at the average.</li>
+          <li><strong>The rate is never an average of rates.</strong> The measure divides total conversions by total
+            contacts, so a total or a product group is always weighted by volume, never a simple average of the rows
+            above it.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Data model</p>
+      <div class="prose">
+        <h2>One fact table, four dimensions.</h2>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Table</th><th>One row per</th><th>Key</th></tr></thead>
+            <tbody>
+              <tr><td>fact_contactos</td><td>contact: date, campaign, channel, region, converted, revenue</td><td>id_contacto</td></tr>
+              <tr><td>dim_campanha</td><td>campaign, with product, dates and budget</td><td>id_campanha</td></tr>
+              <tr><td>dim_canal</td><td>channel</td><td>id_canal</td></tr>
+              <tr><td>dim_regiao</td><td>region, with its zone</td><td>id_regiao</td></tr>
+              <tr><td>dim_data</td><td>day (marked as the date table)</td><td>data</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>All relationships are many-to-one, filtering one way from each dimension to the fact table.</p>
+        <h3>Measures</h3>
+<pre class="code">Contactos         = COUNTROWS ( fact_contactos )
+Conversoes        = SUM ( fact_contactos[convertido] )
+Taxa de conversao = DIVIDE ( [Conversoes], [Contactos] )
+Receita           = SUM ( fact_contactos[receita_anual_eur] )
+Receita por conversao = DIVIDE ( [Receita], [Conversoes] )
+
+Conversoes mes anterior = CALCULATE ( [Conversoes], DATEADD ( dim_data[data], -1, MONTH ) )
+Variacao mensal %       = DIVIDE ( [Conversoes] - [Conversoes mes anterior], [Conversoes mes anterior] )
+Conversoes acumuladas   = TOTALYTD ( [Conversoes], dim_data[data] )
+Conversoes Lisboa       = CALCULATE ( [Conversoes], dim_regiao[regiao] = "Grande Lisboa" )
+% das conversoes        = DIVIDE ( [Conversoes], CALCULATE ( [Conversoes], ALL ( dim_canal ) ) )</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">How it is built</p>
+      <div class="prose">
+        <p>Built in the Power BI service. In Power Query, the dates arrived from Excel as serial numbers and were
+          converted to the Date type before anything else; then the star schema, the measures and one report page. Two
+          details I learnt on the way: the automatic month level of a date hierarchy merges the same month of different
+          years, so the time axis uses the calendar table; and identifier columns are set not to summarise, so nothing
+          adds up IDs by accident.</p>
+        <p>The interactive version on this page is a JavaScript replica: the same data aggregated by month, campaign,
+          channel and region, the same measures, and the same cross-filtering between visuals. Its totals match the
+          Power BI report to the unit.</p>
+        <ul class="chips"><li>Power BI</li><li>Power Query</li><li>DAX</li><li>Star schema</li><li>Time intelligence</li></ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../agent-directory/"><small>← Previous project</small><strong>Agentic Yellow Pages</strong></a>
+    <a href="../pricing-dashboard/"><small>Next project →</small><strong>Pricing health dashboard</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>All demo data is synthetic. The store's own data stays private.</span>
+  </div>
+</footer>
+</body>
+</html>

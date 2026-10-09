@@ -1,0 +1,108 @@
+/* Web replica of the Power BI report. Light canvas on purpose: it mirrors the original. */
+.pbi {
+  --pbi-bg: #eaeaea;
+  --pbi-card: #ffffff;
+  --pbi-line: #e1dfdd;
+  --pbi-text: #252423;
+  --pbi-sub: #605e5c;
+  --pbi-blue: #118dff;
+  --pbi-grid: #edebe9;
+  position: relative;
+  background: var(--pbi-bg);
+  border-radius: 10px;
+  padding: 10px;
+  color: var(--pbi-text);
+  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.pbi-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 10px;
+  color: var(--pbi-sub);
+  font-size: 12.5px;
+}
+.pbi-bar b { color: var(--pbi-text); font-weight: 600; }
+.pbi-reset {
+  border: 1px solid #c8c6c4;
+  background: #fff;
+  color: var(--pbi-text);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.pbi-reset[hidden] { display: none; }
+.pbi-reset:hover { background: #f3f2f1; }
+.pbi-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 8px;
+}
+.pbi-box {
+  background: var(--pbi-card);
+  border: 1px solid var(--pbi-line);
+  border-radius: 4px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.pbi-title { font-size: 14px; font-weight: 600; margin: 0; }
+.pbi-subtitle { font-size: 11.5px; color: var(--pbi-sub); margin: 2px 0 6px; }
+.pbi-cards { grid-column: span 4; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pbi-card { display: flex; flex-direction: column; justify-content: center; min-height: 110px; }
+.pbi-card span { font-size: 12px; color: var(--pbi-sub); }
+.pbi-card b { font-size: 26px; font-weight: 600; margin-top: 2px; letter-spacing: -0.01em; }
+.pbi-matrix { grid-column: span 8; overflow-x: auto; }
+.pbi-line { grid-column: span 4; }
+.pbi-bars { grid-column: span 4; }
+.pbi-chart { width: 100%; height: 260px; display: block; }
+.pbi-chart text { font-family: inherit; fill: var(--pbi-sub); font-size: 11px; }
+.pbi-chart .cat { fill: var(--pbi-text); }
+.pbi-chart .hit { fill: transparent; cursor: pointer; }
+.pbi-chart .bar { cursor: pointer; transition: opacity .15s; }
+
+/* matrix */
+.pbi-matrix table { border-collapse: collapse; width: 100%; font-size: 11.5px; white-space: nowrap; }
+.pbi-matrix th, .pbi-matrix td { padding: 5px 6px; text-align: right; }
+.pbi-matrix thead th { font-weight: 400; color: var(--pbi-text); text-align: left; }
+.pbi-matrix thead tr:last-child th { border-bottom: 1px solid #c8c6c4; text-align: right; }
+.pbi-matrix thead tr:last-child th:first-child { text-align: left; }
+.pbi-matrix th.reg { cursor: pointer; }
+.pbi-matrix th.reg:hover, .pbi-matrix th.camp:hover { text-decoration: underline; }
+.pbi-matrix th.camp { text-align: left; font-weight: 400; cursor: pointer; border-right: 1px solid #c8c6c4; }
+.pbi-matrix td.v { cursor: pointer; }
+.pbi-matrix .tot { font-weight: 700; }
+.pbi-matrix tr.total td, .pbi-matrix tr.total th { font-weight: 700; border-top: 1px solid #c8c6c4; }
+.pbi-matrix .dim { opacity: .35; }
+.pbi-matrix .sel { outline: 2px solid var(--pbi-text); outline-offset: -2px; }
+
+/* tooltip */
+.pbi-tip {
+  position: absolute;
+  pointer-events: none;
+  background: #fff;
+  border: 1px solid #c8c6c4;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  border-radius: 3px;
+  padding: 6px 9px;
+  font-size: 12px;
+  color: var(--pbi-text);
+  z-index: 5;
+  white-space: nowrap;
+}
+.pbi-tip[hidden] { display: none; }
+.pbi-tip div { display: flex; justify-content: space-between; gap: 14px; }
+.pbi-tip span { color: var(--pbi-sub); }
+
+@media (max-width: 900px) {
+  .pbi-cards, .pbi-matrix, .pbi-line, .pbi-bars { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .pbi { padding: 6px; }
+  .pbi-card { min-height: 80px; }
+  .pbi-card b { font-size: 21px; }
+}
