@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Protocol · Pedro Mariano</title>
+<meta name="description" content="Running AI models too large for one consumer GPU across several ordinary PCs: a Go control plane that verifies every machine, a shard router, and measured LAN latency.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css?v=3">
+<link rel="stylesheet" href="../../assets/page.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 08</div>
+      <h1>Grid Protocol</h1>
+      <p class="lead">An AI model that does not fit on one consumer graphics card, running across several ordinary
+        PCs. A control plane in Go decides which machine may join, checks that it stays honest, and places parts of the
+        model on each one. Then I measured whether the network kills the idea.</p>
+      <div class="stats">
+        <div class="stat"><b>~0.5–1 ms</b><span>per network hop between two PCs on wired Gigabit</span></div>
+        <div class="stat"><b>10.4 GB</b><span>model served from an 8 GB card plus a second PC</span></div>
+        <div class="stat"><b>6 checks</b><span>before any machine is admitted, failing closed</span></div>
+        <div class="stat"><b>~12k lines</b><span>of hand-written Go, tests included, all suites passing</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The problem</p>
+      <div class="prose">
+        <h2>Good models outgrow the graphics cards people own.</h2>
+        <p>Open models worth using are often larger than the 8–12 GB of memory on a consumer GPU, while many PCs sit
+          idle. The idea: split one model across several home machines, so their combined memory serves it.</p>
+        <p>Two constraints shape everything. Home PCs sit behind routers that refuse incoming connections (often
+          symmetric NAT), so the coordinator can never call a machine; the machine has to call in. And any machine
+          could lie, crash or be impersonated, so <strong>nothing is trusted until it proves who it is</strong>, and
+          it keeps proving it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Verifying the machines</p>
+      <div class="prose">
+        <h2>Every machine earns its place, and keeps earning it.</h2>
+        <ol class="steps">
+          <li><b>Machine dials out</b><span>Each node opens one persistent, bidirectional gRPC stream to the Go
+            orchestrator. All control traffic travels over it, which works behind home routers.</span></li>
+          <li><b>Server speaks first</b><span>The orchestrator sends a single-use 32-byte random challenge. The node
+            signs a fixed-length transcript bound to that challenge with its ed25519 key, so a recorded handshake can
+            never be replayed.</span></li>
+          <li><b>Six checks, fail closed</b><span>Rate limit per IP, a deadline for the reply (against slow-connection
+            attacks), minimum protocol version, field structure, clock skew and finally the signature. Only a node that
+            passes all six is registered.</span></li>
+          <li><b>Live registry</b><span>Admitted nodes go into Redis with a time-to-live and an index of the models they
+            can serve. Heartbeats refresh the record through a compare-and-set script, so if the same node connects
+            twice the newest session wins and the old one is fenced off. A silent node simply expires.</span></li>
+          <li><b>Verified model files</b><span>Model shards are content-addressed: a node refuses any file without a
+            pre-agreed SHA-256 digest, rejects mismatches, and caps the decompressed size against compression bombs.</span></li>
+          <li><b>Secret-shopper checks</b><span>A small share of jobs (2% by default) is replaced by a question with a
+            known answer. A node that gets it wrong is flagged, without knowing which jobs were tests.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Splitting the model</p>
+      <div class="prose">
+        <h2>A router that knows how far it can stretch.</h2>
+        <p>The router in Go assigns model shards to live nodes with consistent hashing (virtual nodes, filtered by
+          which model each node can serve, and grouped by local network). When a node leaves, only its shards move.</p>
+        <p>Adding machines is not free: every extra node adds a network hop per generated token. So admission follows
+          a measured rule rather than "more is better":</p>
+        <p><code>max nodes ≈ (1 / target tokens per second − compute per token) / per-hop latency + 1</code></p>
+        <p>Nodes are grouped in tiers by usable graphics memory, and the per-hop latency comes from the measurements
+          below, not from a guess.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Measured results</p>
+      <div class="prose">
+        <h2>The network was not the bottleneck.</h2>
+        <p>Two PCs on the same wired Gigabit network: the main machine with an RTX 5060 (8 GB), and a laptop whose
+          GPU could not run the build, used as a CPU-only worker. Latency was timed over TCP with a loopback baseline
+          subtracted, 300 paced samples over 60 seconds.</p>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Network, head to worker (July 2026)</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>Measurement overhead (loopback median)</td><td>0.33 ms</td></tr>
+              <tr><td>Warm connection, minimum</td><td class="good">0.60 ms</td></tr>
+              <tr><td>Paced: median / p95 / p99</td><td>1.64 / 4.3 / 7.2 ms</td></tr>
+              <tr><td>Estimated real round trip per hop</td><td class="good">~0.5–1 ms</td></tr>
+              <tr><td>Drift across the minute</td><td>none</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="margin-top:18px">
+          <table class="data">
+            <thead><tr><th>Running models across both PCs</th><th>Speed</th></tr></thead>
+            <tbody>
+              <tr><td>OLMoE 1B-7B, main GPU only</td><td>164 tokens/s</td></tr>
+              <tr><td>OLMoE split: main GPU + laptop CPU</td><td>51 tokens/s</td></tr>
+              <tr><td>DeepSeek-V2-Lite 10.4 GB, short warm replies</td><td>~16 tokens/s</td></tr>
+              <tr><td>Same model, long 14-turn chat</td><td>falls to 2–4 tokens/s</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">The split ran end to end with coherent answers and no crashes across a 14-turn stress test.</p>
+        <h3>What the numbers mean</h3>
+        <ul>
+          <li><strong>The slowdown is compute, not network.</strong> Per token, the laptop CPU took about 15 ms for its
+            layers against 3–6 ms of network. A GPU worker removes the straggler.</li>
+          <li><strong>Long conversations hurt CPU workers.</strong> Attention grows with the context, and a CPU is poor at
+            it. Weak machines add capacity; the fast path needs GPUs, so the scheduler has to tier nodes.</li>
+          <li><strong>A free win:</strong> loading without memory-mapping cut the main machine's model process from
+            10.94 GB to 0.54 GB of RAM, with no loss of speed.</li>
+          <li><strong>Setup matters:</strong> wired Ethernet only, and a high-performance power plan. Idle power states
+            added 6–10 ms spikes.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">How it was built</p>
+      <div class="prose">
+        <h2>Specification first, then a review against it.</h2>
+        <p>The handshake has a byte-level specification that the Go verifier and the Rust node must match exactly. After
+          the first build I ran an internal security review and fixed every finding that touched the control plane:
+          fail-closed defaults for public binds, mutual TLS between orchestrators, size caps and mandatory digests on
+          downloads, and owner-only permissions on the node's key file. Both Go modules pass their test suites,
+          including the race detector.</p>
+        <p><strong>Still open:</strong> these are LAN results. Performance across the internet, between homes, is a
+          separate question I have not measured yet.</p>
+        <h3>Built with</h3>
+        <ul class="chips"><li>Go</li><li>gRPC / Protocol Buffers</li><li>Redis (Lua scripts)</li><li>ed25519</li>
+          <li>Rust</li><li>llama.cpp (RPC)</li><li>Docker</li></ul>
+        <p class="caption">The code is private for now; I am happy to walk through it in an interview.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../campaigns-dashboard/"><small>← Previous project</small><strong>Campaign performance dashboard</strong></a>
+    <a href="../../about/"><small>About me →</small><strong>Pedro Mariano</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>Measurements from my own two-PC test bench, July 2026.</span>
+  </div>
+</footer>
+</body>
+</html>
