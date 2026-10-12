@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pre-close accounting review · Pedro Mariano</title>
+<meta name="description" content="An assistant for Portuguese accounting firms that checks every ledger entry before closing: account classification from the client's own history, anomaly scanners, ISA 320 materiality and legal citations that cannot be invented.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/home.css?v=3">
+<link rel="stylesheet" href="../../assets/page.css">
+<style>table.data.wrapcells{min-width:0} table.data.wrapcells td{white-space:normal}</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="../../">Pedro Mariano <span>/ portfolio</span></a>
+  <nav>
+    <a href="../../#projects" class="on">Projects</a>
+    <a href="../../about/">About</a>
+    <a href="../../#contact" class="hide-sm">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../../#projects">Projects</a> / 08</div>
+      <h1>Pre-close accounting review</h1>
+      <p class="lead">An assistant for Portuguese accounting firms that reads every entry in the ledger before the
+        year is closed. It checks the account each entry was posted to, flags strange expenses, sizes them against
+        materiality and cites the law. The rule that shapes it: <strong>numbers and detections come from code; the
+        language model only explains.</strong></p>
+      <div class="stats">
+        <div class="stat"><b>11 / 11</b><span>planted errors found by the scanners in the backtest</span></div>
+        <div class="stat"><b>0</b><span>invented legal citations reach the report</span></div>
+        <div class="stat"><b>0.66 vs 0.29</b><span>F1: my fine-tuned 8B model against a 14B model without training</span></div>
+        <div class="stat"><b>15 suites</b><span>of automated checks, all passing</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">The problem</p>
+      <div class="prose">
+        <h2>Before closing, someone has to look at every entry.</h2>
+        <p>An accountant closing a company's year reviews hundreds of entries: was the dinner posted as fuel? Is that
+          invoice a duplicate? Was VAT deducted on a meal, which the law does not allow? Most entries are fine, and
+          the few that are not are easy to miss when you look at all of them by hand.</p>
+        <p>A chatbot is the wrong tool on its own. Language models get arithmetic wrong, miss items when asked to
+          "scan" a list, and invent article numbers with confidence. In accounting, each of those is a real error in a
+          tax return.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">How it works</p>
+      <div class="prose">
+        <h2>Three layers, and the model is only in the middle.</h2>
+        <ol class="steps">
+          <li><b>Read the books</b><span>Imports the company's SAF-T (PT) file, the standard Portuguese accounting
+            export, and an anonymiser strips personal data before anything else runs.</span></li>
+          <li><b>Classify from the client's own history</b><span>For each supplier (by tax number), the system looks at
+            where the firm posted it before. "This supplier was posted 47 times, always to account 6211" is a rule the
+            accountant can verify, not an opinion. An entry that disagrees with a consistent history is the most
+            valuable finding; a new or mixed supplier goes to a human.</span></li>
+          <li><b>Scan for anomalies</b><span>Deterministic scanners, built to miss nothing: account that does not match
+            the description, wrong VAT rate, VAT that is not base × rate, probable duplicate invoices, expenses not
+            deductible for corporate tax (IRC), project clusters, and amounts unusual for their account (median and
+            MAD, robust to the outlier itself).</span></li>
+          <li><b>Size by materiality</b><span>Computes materiality and a working threshold in the spirit of ISA 320, and
+            orders findings by money. Small findings below the threshold are also added up, because together they can
+            matter.</span></li>
+          <li><b>Explain, with citations that cannot be invented</b><span>The model receives each finding already
+            detected and writes the explanation. It may cite law only through IDs of articles retrieved from a database
+            of 1,137 articles extracted from the official codes. A validator blocks anything else.</span></li>
+          <li><b>Human gate</b><span>The model never writes to the books. It proposes; the accountant approves.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">What the report looks like</p>
+      <div class="prose">
+        <h2>A pre-close review the accountant can act on.</h2>
+        <p>On a sample company (synthetic data, 25 entries, one year), the deterministic layer alone produced 16
+          findings, 9 of them above the working threshold. A few of them:</p>
+        <div class="table-wrap">
+          <table class="data wrapcells">
+            <thead><tr><th>Finding</th><th>Action</th><th>Basis</th></tr></thead>
+            <tbody>
+              <tr><td>Possible duplicate: 1,230.00 € and 1,230.50 €, same supplier, 2 days apart</td><td>Confirm with supplier</td><td>scanner</td></tr>
+              <tr><td>Business lunch posted to 6221 Fuel</td><td>Reclassify to 6226 or 6265</td><td>account rules</td></tr>
+              <tr><td>Fuel invoice at 13% VAT (expected 23%)</td><td>Correct the rate</td><td>CIVA art. 18</td></tr>
+              <tr><td>VAT deducted on a client dinner</td><td>Reverse the deduction</td><td>CIVA art. 21</td></tr>
+              <tr><td>Fine for late filing in expenses</td><td>Add back in Modelo 22, table 07</td><td>CIRC art. 23-A</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">12 of the 16 findings carry a legal basis fixed in the rules table, the same in every run.
+          Even when the model server is down, the report is still produced; it just has no explanations.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Measured results</p>
+      <div class="prose">
+        <h2>Training beat size.</h2>
+        <p>For the explanation layer I fine-tuned small open models on a bank of tax and auditing cases, where every
+          citation was validated and no case with arithmetic was used for training (numbers belong to the code). On a
+          fixed benchmark of 30 scenarios:</p>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Model</th><th>F1</th><th>Recall</th><th>Precision</th><th>Invented law</th></tr></thead>
+            <tbody>
+              <tr><td>Qwen2.5-7B, no training (baseline)</td><td>0.248</td><td>0.211</td><td>0.317</td><td>0</td></tr>
+              <tr><td>Qwen2.5-14B, no training</td><td>0.294</td><td>0.283</td><td>0.339</td><td>0</td></tr>
+              <tr><td>Qwen2.5-7B, fine-tuned</td><td>0.500</td><td>–</td><td>–</td><td>0</td></tr>
+              <tr><td>Qwen3-8B, fine-tuned, 2 epochs</td><td class="good">0.659</td><td class="good">0.739</td><td class="good">0.622</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The fine-tuned 8B model more than doubles the untrained 14B, and it fits on an 8 GB card that a small firm
+          can run on its own premises, with client data never leaving the office.</p>
+        <p>The scanners are measured separately against planted errors: <strong>11 of 11 caught</strong>, with 6 extra
+          flags left for the model and the accountant to dismiss. High recall is deliberate; precision is the human's
+          job.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="wrap grid">
+      <p class="label">Auditing my own work</p>
+      <div class="prose">
+        <h2>The tests were green. The validator still had holes.</h2>
+        <p>In September the product path went through an independent audit that attacked what no test asked about. The
+          citation test had been checking a copy of the logic inside the test file, not the validator used in
+          production. Attacked with deliberately bad citations and controls, the real validator failed 5 of 10 checks, letting through abbreviated forms
+          like "art. 32.º do CIVA" and whole families it did not know, ISA and NCRF references among them.</p>
+        <p>Across 11,539 model answers, 765 cited law in free text, and the old guard caught 2% of them. I rewrote the
+          validator, tested it against the real code path, and every one of those forms is now blocked. The lesson I
+          keep: a passing test only matters if it would fail when the thing it guards is broken.</p>
+        <h3>Built with</h3>
+        <ul class="chips"><li>Python</li><li>SAF-T (PT)</li><li>SNC / IVA / IRC rules</li><li>ISA 320 materiality</li>
+          <li>Qwen3-8B fine-tuning (QLoRA, 4-bit)</li><li>llama.cpp</li><li>Retrieval with anchored citations</li></ul>
+        <p class="caption">Data shown is synthetic. Rules follow Portuguese law as of 2026 and are not tax advice.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="next" aria-label="More projects">
+  <div class="wrap">
+    <a href="../grid-swarm/"><small>← Previous project</small><strong>Grid Protocol</strong></a>
+    <a href="../../about/"><small>About me →</small><strong>Pedro Mariano</strong></a>
+  </div>
+</nav>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Pedro Mariano</span>
+    <span>Sample company and entries are synthetic.</span>
+  </div>
+</footer>
+</body>
+</html>
