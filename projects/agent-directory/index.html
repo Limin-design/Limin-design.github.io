@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agentic Yellow Pages · Pedro Mariano</title>
-<meta name="description" content="A directory of 6,553 AI agents (remote MCP servers) that another agent can call, each one tested over its own protocol every day.">
+<meta name="description" content="A directory of 7,222 AI agents (remote MCP servers) that another agent can call, each one tested over its own protocol every day.">
 <meta name="theme-color" content="#0a0a0a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,9 +37,9 @@
         <a class="btn" href="https://github.com/Limin-design/agentic-yellow-pages">Code</a>
       </div>
       <div class="stats">
-        <div class="stat"><b>6,553</b><span>remote MCP servers listed, from the official registry</span></div>
-        <div class="stat"><b>3,257</b><span>answered the protocol and listed their tools on the first run</span></div>
-        <div class="stat"><b>2,331</b><span>exist but require authentication, and say so</span></div>
+        <div class="stat"><b>7,222</b><span>remote MCP servers listed, from the official registry (14 Oct 2026)</span></div>
+        <div class="stat"><b>3,585</b><span>answered the protocol and listed their tools on the latest run</span></div>
+        <div class="stat"><b>2,649</b><span>exist but require authentication, and say so</span></div>
         <div class="stat"><b>~9 min</b><span>to test the whole registry, daily on GitHub Actions</span></div>
       </div>
     </div>
@@ -98,15 +98,15 @@
         <h2>Half of the registry works without credentials.</h2>
         <div class="table-wrap">
           <table class="data">
-            <thead><tr><th>Result of the first run (8 Oct 2026)</th><th>Servers</th><th>Share</th></tr></thead>
+            <thead><tr><th>Result</th><th>First run, 8 Oct</th><th>Share</th><th>14 Oct</th><th>Share</th></tr></thead>
             <tbody>
-              <tr><td>Answered MCP and listed tools</td><td class="good">3,257</td><td>50%</td></tr>
-              <tr><td>Require authentication (401/403)</td><td>2,331</td><td>36%</td></tr>
-              <tr><td>Unreachable, wrong protocol or errors</td><td>965</td><td>15%</td></tr>
+              <tr><td>Answered MCP and listed tools</td><td class="good">3,257</td><td>50%</td><td class="good">3,585</td><td>50%</td></tr>
+              <tr><td>Require authentication (401/403)</td><td>2,331</td><td>36%</td><td>2,649</td><td>37%</td></tr>
+              <tr><td>Unreachable, wrong protocol or errors</td><td>965</td><td>15%</td><td>988</td><td>14%</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="caption">Shares of the 6,553 endpoints. In a 60-server sample the median <code>initialize</code> took 0.65 s.</p>
+        <p class="caption">Shares of all listed endpoints: 6,553 on 8 October and 7,222 on 14 October; the directory grows as the registry does. In a 60-server sample the median <code>initialize</code> took 0.65 s.</p>
         <h3>Built with</h3>
         <ul class="chips"><li>Python</li><li>MCP (JSON-RPC, streamable HTTP, SSE)</li><li>FastAPI</li><li>Supabase / PostgREST</li>
           <li>GitHub Actions</li><li>Render</li><li>Groq · Llama 3.3</li><li>ScrapeGraphAI</li></ul>
