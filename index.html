@@ -52,8 +52,8 @@
         <p class="label">About</p>
         <h2>Business problems, solved with software that can be checked.</h2>
         <p>I study Business Management at ISCAL in Lisbon, finishing in 2027, and I run operations and systems at my
-          family's minimarket. There I built a system that reads supplier invoices, proves them against the Portuguese
-          fiscal QR code and proposes new prices for a person to approve.</p>
+          family's minimarket. There I built the system the store uses to turn supplier invoices into price updates
+          that a person approves.</p>
         <p>What I care about is the part that makes automation safe: tests, audit trails, backups and a way to undo
           every change.</p>
         <p><a href="about/" class="more">More about me, my experience and my CV →</a></p>
@@ -74,19 +74,14 @@
       <div class="projects">
         <article class="card wide reveal">
           <div class="num">01</div>
-          <h3>Invoice → Price<span class="badge">Live</span></h3>
-          <p>Reads supplier invoices, checks every line against the fiscal QR code VAT rate by VAT rate, and proposes
-            new costs and shelf prices that a person approves. Photograph a real Portuguese invoice with your phone and
-            watch it being read and proved, in the store app's own design. Nothing leaves your device.</p>
-          <ul class="tags"><li>Python</li><li>OCR</li><li>Fiscal QR</li><li>22 tests</li><li>Safe writes with undo</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="invoice-demo/">Try it live <span class="arrow">→</span></a>
-            <a class="btn" href="projects/invoice-pricing/">Case study</a>
-            <a class="btn" href="https://github.com/Limin-design/precos-loja">Code</a>
-          </div>
+          <h3>Store pricing system<span class="badge">In production</span></h3>
+          <p>The system my family's minimarket uses every day to turn supplier invoices into cost and price
+            proposals that a person approves. Every change has a verified backup and can be undone. It cut the daily
+            invoice check from two hours to twenty minutes. The technical details are not public.</p>
+          <ul class="tags"><li>Python</li><li>PowerShell</li><li>SQL Server</li><li>MS Access</li><li>Human approval</li></ul>
         </article>
 
-        <article class="card reveal">
+        <article class="card wide reveal">
           <div class="num">02</div>
           <h3>StratForge<span class="badge">Live</span></h3>
           <p>A trading strategy builder: backtests with fees and slippage, tests that catch overfitting, live Bitcoin
@@ -99,19 +94,8 @@
           </div>
         </article>
 
-        <article class="card reveal">
-          <div class="num">03</div>
-          <h3>Invoice triage workflow</h3>
-          <p>Each new invoice is summarised, logged to a spreadsheet and routed by email: "ready to approve" or
-            "needs a person", with the reasons. It never writes a price.</p>
-          <ul class="tags"><li>n8n</li><li>Google Sheets</li><li>Gmail</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="projects/invoice-triage/">See the workflow <span class="arrow">→</span></a>
-          </div>
-        </article>
-
         <article class="card wide reveal">
-          <div class="num">04</div>
+          <div class="num">03</div>
           <h3>Does an AI model predict Bitcoin?</h3>
           <p>I connected Kronos, an open model trained only on price candles, to StratForge and tested it on a year of
             Bitcoin data it had never seen. It showed no reliable edge. The write-up explains how I measured it.</p>
@@ -122,7 +106,7 @@
         </article>
 
         <article class="card wide reveal">
-          <div class="num">05</div>
+          <div class="num">04</div>
           <h3>Agentic Yellow Pages<span class="badge">Live</span></h3>
           <p>A directory of 7,222 AI agents that another agent can actually call. Every day it reads the official MCP
             Registry, connects to each server over the protocol itself and records whether it answers, how fast, and
@@ -135,7 +119,7 @@
           </div>
         </article>
         <article class="card reveal">
-          <div class="num">06</div>
+          <div class="num">05</div>
           <h3>Campaign performance dashboard</h3>
           <p>A Power BI report built from scratch on an energy retailer's campaigns: a star schema, ten DAX measures and
             which campaigns, channels and regions actually bring customers.</p>
@@ -145,7 +129,7 @@
           </div>
         </article>
         <article class="card reveal">
-          <div class="num">07</div>
+          <div class="num">06</div>
           <h3>Grid Protocol</h3>
           <p>An AI model too large for one graphics card, running across several ordinary PCs. A Go control plane
             verifies every machine before and while it works, and LAN tests show under a millisecond per network hop.</p>
@@ -155,7 +139,7 @@
           </div>
         </article>
         <article class="card wide reveal">
-          <div class="num">08</div>
+          <div class="num">07</div>
           <h3>Pre-close accounting review</h3>
           <p>An assistant for Portuguese accounting firms that checks every ledger entry before the year is closed:
             account classification from the client's own history, scanners for duplicates, wrong VAT and
