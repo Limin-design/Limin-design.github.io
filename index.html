@@ -4,165 +4,272 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pedro Mariano</title>
-<meta name="description" content="Pedro Mariano builds automation on real business data. Projects you can try in your browser.">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="description" content="Pedro Mariano builds automation on real business data. Seven projects, shown working.">
+<meta name="theme-color" content="#07080a">
 <meta property="og:title" content="Pedro Mariano">
-<meta property="og:description" content="Finance and process automation. Projects you can try in your browser.">
+<meta property="og:description" content="Finance and process automation. Seven projects, shown working.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/home.css?v=3">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/cinema.css?v=1">
+<script>if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("anim");</script>
 <script type="importmap">
   { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
 </script>
 </head>
 <body>
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="reel" aria-hidden="true"></div>
 
 <header class="top">
   <a class="mark" href="#top">Pedro Mariano <span>/ portfolio</span></a>
   <nav>
     <a href="about/" class="hide-sm">About</a>
-    <a href="#projects">Projects</a>
+    <a href="#s1">Projects</a>
     <a href="#contact">Contact</a>
   </nav>
 </header>
 
 <main id="top">
-  <section class="hero">
+  <section class="opening">
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <div class="letterbox top-bar" aria-hidden="true"></div>
+    <div class="letterbox bottom-bar" aria-hidden="true"></div>
     <div class="wrap">
-      <div class="hero-text">
-        <div class="eyebrow">Lisbon · Business Management, ISCAL</div>
-        <h1>Pedro<br>Mariano<span class="soft">.</span></h1>
-        <p class="lead">I build automation on real business data: systems that read, check and act,
-          and that a person can always verify.</p>
-        <div class="actions">
-          <a class="btn solid" href="#projects">See the projects <span class="arrow">→</span></a>
-          <a class="btn" href="#contact">Get in touch</a>
+      <div class="slate">Lisbon · Business Management, ISCAL</div>
+      <h1><span class="ln"><span>Pedro</span></span><span class="ln"><span>Mariano<span class="dot">.</span></span></span></h1>
+      <p class="lead">I build automation on real business data: systems that read, check and act, and that a person can always verify.</p>
+      <div class="actions">
+        <a class="btn solid" href="#s1">Watch them work <span>→</span></a>
+        <a class="btn" href="#contact">Get in touch</a>
+      </div>
+    </div>
+    <a class="cue" href="#act">Scroll</a>
+  </section>
+
+  <section class="titlecard" id="act">
+    <div class="wrap">
+      <p>Seven projects</p>
+      <h2>Software you can <em>watch working</em>, and check.</h2>
+    </div>
+  </section>
+
+  <!-- 01 -->
+  <section class="scene" id="s1" style="--sa:#f4c95d">
+    <div class="wrap">
+      <div class="copy">
+        <div class="snum">01 · In production</div>
+        <h2>Store pricing system</h2>
+        <p>The system my family's minimarket uses every day: a supplier invoice comes in, it is checked against the fiscal QR code, and cost and price proposals wait for a person to approve them. Every change has a verified backup and can be undone. The technical details are not public.</p>
+        <div class="stat"><div><b>2 h → 20 min</b><span>daily invoice check</span></div><div><b>16,840</b><span>items in the store</span></div></div>
+        <ul class="tags"><li>Python</li><li>SQL Server</li><li>MS Access</li><li>Human approval</li></ul>
+      </div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span>pricing · supplier invoice</span></div>
+        <div class="stage" data-scene="pricing">
+          <div class="inv">
+            <h4>INVOICE FT 2026/1842</h4>
+            <div class="ln"><span>Whole milk 1L ×24</span><span>21,36</span></div>
+            <div class="ln"><span>Rice 1kg ×20</span><span>25,80</span></div>
+            <div class="ln"><span>Olive oil 750ml ×12</span><span>77,88</span></div>
+            <div class="ln"><span>Coffee 250g ×10</span><span>31,90</span></div>
+            <div class="ln"><b>Total</b><b>156,94</b></div>
+            <div class="qr"></div>
+          </div>
+          <div class="scan"></div>
+          <div class="inv-chips"><span class="chip">QR fiscal ✓</span><span class="chip">VAT by rate ✓</span><span class="chip">Line totals ✓</span></div>
+          <div class="props">
+            <h5>Proposals to approve</h5>
+            <div class="prop"><span>Whole milk 1L</span><span><s>0,95</s><b>0,99</b></span></div>
+            <div class="prop"><span>Rice 1kg</span><span><s>1,49</s><b>1,59</b></span></div>
+            <div class="prop"><span>Olive oil 750ml</span><span><s>7,49</s><b>7,99</b></span></div>
+            <div class="prop"><span>Coffee 250g</span><span><s>3,79</s><b>3,79</b></span></div>
+          </div>
+          <div class="approve"><div class="fill"></div><span class="pre">Slide to approve</span><span class="post" style="opacity:0">✓ 4 prices saved</span></div>
         </div>
       </div>
     </div>
-    <a class="scroll-cue" href="#about">Scroll</a>
   </section>
 
-  <section class="block" id="about">
-    <div class="wrap about">
-      <div class="portrait reveal"><img src="assets/photo-bw.jpg?v=3" alt="Pedro Mariano" width="480" height="480" loading="lazy"></div>
-      <div class="reveal">
-        <p class="label">About</p>
-        <h2>Business problems, solved with software that can be checked.</h2>
-        <p>I study Business Management at ISCAL in Lisbon, finishing in 2027, and I run operations and systems at my
-          family's minimarket. There I built the system the store uses to turn supplier invoices into price updates
-          that a person approves.</p>
-        <p>What I care about is the part that makes automation safe: tests, audit trails, backups and a way to undo
-          every change.</p>
-        <p><a href="about/" class="more">More about me, my experience and my CV →</a></p>
-        <div class="facts">
-          <div class="fact"><b>Python · SQL · Power BI</b><span>plus Azure, n8n and local AI models</span></div>
-          <div class="fact"><b>Finance and tax</b><span>Accounting (SNC), auditing, IRS and IRC</span></div>
-          <div class="fact"><b>Portuguese · Romanian · English</b><span>native, native, C1</span></div>
+  <!-- 02 -->
+  <section class="scene" id="s2" style="--sa:#7aa2ff">
+    <div class="wrap">
+      <div class="copy">
+        <div class="snum">02 · Accounting</div>
+        <h2>Pre-close accounting review</h2>
+        <p>An assistant for Portuguese accounting firms that checks every ledger entry before the year is closed: wrong VAT, duplicates, non-deductible expenses, outliers, with ISA 320 materiality and legal citations the model cannot invent.</p>
+        <div class="stat"><div><b>11 / 11</b><span>planted errors caught</span></div><div><b>0.66 vs 0.29</b><span>F1, my 8B vs untrained 14B</span></div></div>
+        <ul class="tags"><li>Python</li><li>SAF-T</li><li>SNC · IVA · IRC</li><li>QLoRA</li></ul>
+        <div class="actions"><a class="btn solid" href="projects/accounting-review/">Read the case study →</a></div>
+      </div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span>pre-close review · SAF-T 2025</span></div>
+        <div class="stage" data-scene="accounting">
+          <table class="ledger">
+            <tr><td>03-02</td><td>6221</td><td>Electricity</td><td>412,30</td><td class="why"></td></tr>
+            <tr data-why="VAT 23% on 6% goods"><td>11-03</td><td>3121</td><td>Bread supplier</td><td>1 280,00</td><td class="why"></td></tr>
+            <tr><td>02-04</td><td>6262</td><td>Insurance</td><td>890,00</td><td class="why"></td></tr>
+            <tr data-why="Duplicate entry"><td>14-05</td><td>6221</td><td>Electricity</td><td>412,30</td><td class="why"></td></tr>
+            <tr><td>30-06</td><td>6324</td><td>Payroll</td><td>9 340,00</td><td class="why"></td></tr>
+            <tr data-why="Not deductible (IRC)"><td>21-07</td><td>6268</td><td>Fines</td><td>250,00</td><td class="why"></td></tr>
+            <tr><td>09-09</td><td>6226</td><td>Rent</td><td>1 500,00</td><td class="why"></td></tr>
+            <tr data-why="Outlier (MAD)"><td>02-11</td><td>6223</td><td>Fuel</td><td>4 870,00</td><td class="why"></td></tr>
+          </table>
+          <div class="scan"></div>
+          <div class="acc-side">
+            <div class="f1"><div><div class="bar" style="height:22px"><em>0.29</em></div><small>14B base</small></div><div><div class="bar me" style="height:50px"><em>0.66</em></div><small>8B tuned</small></div></div>
+            <div class="counter"><b><span data-count="11">0</span> / 11</b><span>planted errors</span><div style="margin-top:8px"><span class="chip cite" style="opacity:0">CIVA citation ✓ verified</span></div></div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="block" id="projects">
+  <!-- 03 -->
+  <section class="scene" id="s3" style="--sa:#57d68d">
     <div class="wrap">
-      <p class="label reveal">Projects</p>
-      <h2 class="reveal">Things I built, ready to try.</h2>
-
-      <div class="projects">
-        <article class="card wide reveal">
-          <div class="num">01</div>
-          <h3>Store pricing system<span class="badge">In production</span></h3>
-          <p>The system my family's minimarket uses every day to turn supplier invoices into cost and price
-            proposals that a person approves. Every change has a verified backup and can be undone. It cut the daily
-            invoice check from two hours to twenty minutes. The technical details are not public.</p>
-          <ul class="tags"><li>Python</li><li>PowerShell</li><li>SQL Server</li><li>MS Access</li><li>Human approval</li></ul>
-        </article>
-
-        <article class="card wide reveal">
-          <div class="num">02</div>
-          <h3>StratForge<span class="badge">Live</span></h3>
-          <p>A trading strategy builder: backtests with fees and slippage, tests that catch overfitting, live Bitcoin
-            candles, and an AI analyst that reads the chart and calls the engine instead of guessing.</p>
-          <ul class="tags"><li>TypeScript</li><li>React</li><li>AI agent</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="stratforge/">Open the app <span class="arrow">→</span></a>
-            <a class="btn" href="projects/stratforge/">Case study</a>
-            <a class="btn" href="https://github.com/Limin-design/stratforge">Code</a>
-          </div>
-        </article>
-
-        <article class="card wide reveal">
-          <div class="num">03</div>
-          <h3>Does an AI model predict Bitcoin?</h3>
-          <p>I connected Kronos, an open model trained only on price candles, to StratForge and tested it on a year of
-            Bitcoin data it had never seen. It showed no reliable edge. The write-up explains how I measured it.</p>
-          <ul class="tags"><li>PyTorch</li><li>GPU</li><li>Out-of-sample test</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="projects/kronos-study/">Read the results <span class="arrow">→</span></a>
-          </div>
-        </article>
-
-        <article class="card wide reveal">
-          <div class="num">04</div>
-          <h3>Agentic Yellow Pages<span class="badge">Live</span></h3>
-          <p>A directory of 7,222 AI agents that another agent can actually call. Every day it reads the official MCP
-            Registry, connects to each server over the protocol itself and records whether it answers, how fast, and
-            which tools it offers. Half of them work without credentials.</p>
-          <ul class="tags"><li>Python</li><li>MCP</li><li>FastAPI</li><li>Supabase</li><li>GitHub Actions</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="https://agenticyellowpage.com">Open the directory <span class="arrow">→</span></a>
-            <a class="btn" href="projects/agent-directory/">Case study</a>
-            <a class="btn" href="https://github.com/Limin-design/agentic-yellow-pages">Code</a>
-          </div>
-        </article>
-        <article class="card reveal">
-          <div class="num">05</div>
-          <h3>Campaign performance dashboard</h3>
-          <p>A Power BI report built from scratch on an energy retailer's campaigns: a star schema, ten DAX measures and
-            which campaigns, channels and regions actually bring customers.</p>
-          <ul class="tags"><li>Power BI</li><li>DAX</li><li>Power Query</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="projects/campaigns-dashboard/">See the dashboard <span class="arrow">→</span></a>
-          </div>
-        </article>
-        <article class="card reveal">
-          <div class="num">06</div>
-          <h3>Grid Protocol</h3>
-          <p>An AI model too large for one graphics card, running across several ordinary PCs. A Go control plane
-            verifies every machine before and while it works, and LAN tests show under a millisecond per network hop.</p>
-          <ul class="tags"><li>Go</li><li>gRPC</li><li>Redis</li><li>Rust</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="projects/grid-swarm/">Read the case study <span class="arrow">→</span></a>
-          </div>
-        </article>
-        <article class="card wide reveal">
-          <div class="num">07</div>
-          <h3>Pre-close accounting review</h3>
-          <p>An assistant for Portuguese accounting firms that checks every ledger entry before the year is closed:
-            account classification from the client's own history, scanners for duplicates, wrong VAT and
-            non-deductible expenses, ISA 320 materiality, and legal citations the model cannot invent. My fine-tuned
-            8B model more than doubles an untrained 14B.</p>
-          <ul class="tags"><li>Python</li><li>SAF-T</li><li>SNC · IVA · IRC</li><li>ISA 320</li><li>QLoRA</li></ul>
-          <div class="actions">
-            <a class="btn solid" href="projects/accounting-review/">Read the case study <span class="arrow">→</span></a>
-          </div>
-        </article>
+      <div class="copy">
+        <div class="snum">03 · Live app</div>
+        <h2>StratForge</h2>
+        <p>A trading strategy builder: backtests with fees and slippage, Monte Carlo and walk-forward tests that catch overfitting, and an AI analyst that calls the engine instead of guessing the numbers.</p>
+        <ul class="tags"><li>TypeScript</li><li>React</li><li>Tauri</li><li>AI agent</li></ul>
+        <div class="actions"><a class="btn solid" href="stratforge/">Open the app →</a><a class="btn" href="projects/stratforge/">Case study</a></div>
+      </div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span>stratforge · BTCUSDT 4h</span></div>
+        <div class="stage" data-scene="stratforge">
+          <div class="chart"><svg viewBox="0 0 600 300" preserveAspectRatio="none"><g class="candles"></g><g class="fan"></g><path class="equity" fill="none" stroke="#57d68d" stroke-width="2.5"/></svg></div>
+          <div class="badges"><span class="chip">Fees + slippage ✓</span><span class="chip">Monte Carlo ✓</span><span class="chip">Walk-forward ✓</span><span class="chip y">Deflated Sharpe</span></div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="block contact" id="contact">
-    <div class="wrap reveal">
-      <p class="label">Contact</p>
+  <!-- 04 -->
+  <section class="scene" id="s4" style="--sa:#ff8f8f">
+    <div class="wrap">
+      <div class="copy">
+        <div class="snum">04 · Research</div>
+        <h2>Does an AI model predict Bitcoin?</h2>
+        <p>I connected Kronos, an open model trained only on price candles, to my backtester and tested it on data it had never seen. Direction calls landed near a coin flip and trading on them lost money. I published the negative result the same way I would a positive one.</p>
+        <div class="stat"><div><b>2,008</b><span>forecasts</span></div><div><b>13 months</b><span>of unseen data</span></div></div>
+        <ul class="tags"><li>PyTorch</li><li>GPU</li><li>Out-of-sample</li></ul>
+        <div class="actions"><a class="btn solid" href="projects/kronos-study/">Read the results →</a></div>
+      </div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span>kronos · out-of-sample</span></div>
+        <div class="stage" data-scene="kronos">
+          <div class="chart"><svg viewBox="0 0 600 300" preserveAspectRatio="none"><path class="actual" fill="none" stroke="#c9ced4" stroke-width="2"/><g class="calls"></g></svg></div>
+          <div class="badges"><span class="chip y">Direction hit rate ≈ <span data-count="50">0</span>%</span><span class="chip red">Strategy below buy-and-hold</span></div>
+          <div class="stamp">NO RELIABLE EDGE</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section class="scene" id="s5" style="--sa:#b28cff">
+    <div class="wrap">
+      <div class="copy">
+        <div class="snum">05 · Live directory</div>
+        <h2>Agentic Yellow Pages</h2>
+        <p>A directory of AI agents that another agent can actually call. Every day it reads the official MCP Registry, connects to each server over the protocol itself and records whether it answers, how fast, and which tools it offers.</p>
+        <div class="stat"><div><b>7,222</b><span>servers checked daily</span></div><div><b>~ half</b><span>work without credentials</span></div></div>
+        <ul class="tags"><li>Python</li><li>MCP</li><li>FastAPI</li><li>GitHub Actions</li></ul>
+        <div class="actions"><a class="btn solid" href="https://agenticyellowpage.com">Open the directory →</a><a class="btn" href="projects/agent-directory/">Case study</a></div>
+      </div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span>daily crawl · MCP registry</span></div>
+        <div class="stage" data-scene="directory">
+          <div class="dots" style="width:62%"></div>
+          <div class="dir-count"><b data-count="7222">0</b><span>servers checked</span></div>
+          <div class="term">
+            <div class="l">→ initialize  mcp-weather.example  <span class="ok">200</span></div>
+            <div class="l">→ tools/list  <span class="ok">6 tools</span> · 184 ms</div>
+            <div class="l">→ initialize  docs-search.example  <span class="warn">401 auth</span></div>
+            <div class="l">→ retry transient error  <span class="ok">ok</span> · saved to directory</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 -->
+  <section class="scene" id="s6" style="--sa:#4fd1c5">
+    <div class="wrap">
+      <div class="copy">
+        <div class="snum">06 · Distributed AI</div>
+        <h2>Grid Protocol</h2>
+        <p>An AI model too large for one graphics card, running across ordinary PCs. A Go control plane admits a machine only after a signed challenge and six checks, keeps watching it while it works, and verifies every model file.</p>
+        <div class="stat"><div><b>~0.5–1 ms</b><span>per network hop</span></div><div><b>10.4 GB</b><span>model on an 8 GB card + 1 PC</span></div></div>
+        <ul class="tags"><li>Go</li><li>gRPC</li><li>Redis</li><li>Rust</li></ul>
+        <div class="actions"><a class="btn solid" href="projects/grid-swarm/">Read the case study →</a></div>
+      </div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span>grid · control plane</span></div>
+        <div class="stage" data-scene="grid">
+          <div class="grid-svg"><svg viewBox="0 0 600 330">
+            <g class="links" stroke="#4fd1c5" stroke-width="2" fill="none" opacity=".9">
+              <path d="M300 70 L120 230"/><path d="M300 70 L300 230"/><path d="M300 70 L480 230"/>
+              <path d="M120 230 L300 230" stroke-dasharray="4 6"/><path d="M300 230 L480 230" stroke-dasharray="4 6"/>
+            </g>
+            <g class="node cp"><rect x="230" y="40" width="140" height="56" rx="10" fill="#14181e" stroke="#343a44"/><text x="300" y="66" fill="#f1f3f5" font-size="14" text-anchor="middle" font-family="JetBrains Mono">control plane</text><text x="300" y="84" fill="#66707b" font-size="11" text-anchor="middle" font-family="JetBrains Mono">Go · Redis</text></g>
+            <g class="node m"><rect x="60" y="205" width="120" height="56" rx="10" fill="#14181e" stroke="#343a44"/><text x="120" y="231" fill="#f1f3f5" font-size="13" text-anchor="middle" font-family="JetBrains Mono">PC 1 · 8 GB</text><text x="120" y="249" fill="#66707b" font-size="11" text-anchor="middle" font-family="JetBrains Mono">layers 0–13</text></g>
+            <g class="node m"><rect x="240" y="205" width="120" height="56" rx="10" fill="#14181e" stroke="#343a44"/><text x="300" y="231" fill="#f1f3f5" font-size="13" text-anchor="middle" font-family="JetBrains Mono">PC 2 · CPU</text><text x="300" y="249" fill="#66707b" font-size="11" text-anchor="middle" font-family="JetBrains Mono">layers 14–26</text></g>
+            <g class="node m"><rect x="420" y="205" width="120" height="56" rx="10" fill="#14181e" stroke="#343a44"/><text x="480" y="231" fill="#f1f3f5" font-size="13" text-anchor="middle" font-family="JetBrains Mono">router</text><text x="480" y="249" fill="#66707b" font-size="11" text-anchor="middle" font-family="JetBrains Mono">tokens out</text></g>
+            <circle class="packet" r="6" cx="120" cy="230" fill="#4fd1c5"/>
+          </svg></div>
+          <div class="checks">
+            <div><span class="ok">✓</span> ed25519 challenge signed</div>
+            <div><span class="ok">✓</span> six admission checks</div>
+            <div><span class="ok">✓</span> model files SHA-256 verified</div>
+            <div><span class="ok">✓</span> heartbeat · still healthy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 -->
+  <section class="scene" id="s7" style="--sa:#ffb36b">
+    <div class="wrap">
+      <div class="copy">
+        <div class="snum">07 · Business intelligence</div>
+        <h2>Campaign performance dashboard</h2>
+        <p>A Power BI report built from scratch on an energy retailer's campaigns: a star schema, ten DAX measures and which campaigns, channels and regions actually bring customers.</p>
+        <ul class="tags"><li>Power BI</li><li>DAX</li><li>Power Query</li></ul>
+        <div class="actions"><a class="btn solid" href="projects/campaigns-dashboard/">See the dashboard →</a></div>
+      </div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span>campaigns.pbix · overview</span></div>
+        <div class="stage" data-scene="dashboard">
+          <div class="kpis">
+            <div class="kpi"><span>Campaigns</span><b data-count="6">0</b></div>
+            <div class="kpi"><span>DAX measures</span><b data-count="10">0</b></div>
+            <div class="kpi"><span>New customers</span><b data-count="1059">0</b></div>
+          </div>
+          <div class="bars"><div style="height:65%"></div><div style="height:100%"></div><div style="height:76%"></div><div style="height:45%"></div></div>
+          <div class="bars-l"><span>Email · 241</span><span>Phone · 370</span><span>Store · 281</span><span>Online · 167</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="credits" id="contact">
+    <div class="wrap">
+      <img class="portrait" src="assets/photo-bw.jpg?v=3" alt="Pedro Mariano" width="120" height="120" loading="lazy">
       <h2>Let's talk.</h2>
-      <p>I am looking for a hybrid role in Lisbon, or a remote one, in business and finance systems, automation or AI.</p>
+      <p>I study Business Management at ISCAL in Lisbon, finishing in 2027, and I run operations and systems at my family's minimarket. I am looking for a role in Lisbon, hybrid or remote, in business and finance systems, automation or AI.</p>
       <div class="actions">
         <a class="btn solid" href="mailto:pedropaskalo@nullcompute.cloud">pedropaskalo@nullcompute.cloud</a>
         <a class="btn" href="https://www.linkedin.com/in/pedro-mariano-pt">LinkedIn</a>
-        <a class="btn" href="https://github.com/Limin-design">GitHub</a>
+        <a class="btn" href="about/">About and CV</a>
+      </div>
+      <div class="facts">
+        <div><b>Python · SQL · Power BI</b><span>plus Azure, n8n and local AI models</span></div>
+        <div><b>Finance and tax</b><span>SNC, auditing, IRS and IRC</span></div>
+        <div><b>PT · RO · EN</b><span>native, native, C1</span></div>
       </div>
     </div>
   </section>
@@ -176,27 +283,9 @@
 </footer>
 
 <script type="module" src="assets/hero3d.js"></script>
-<script>
-  // Reveal sections as they enter the viewport.
-  const io = new IntersectionObserver((entries) => {
-    for (const e of entries) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
-  }, { threshold: 0.12 });
-  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
-
-  // Project cards tilt in 3D towards the pointer (pointer devices only).
-  if (window.matchMedia("(hover: hover) and (prefers-reduced-motion: no-preference)").matches) {
-    document.querySelectorAll(".card").forEach((card) => {
-      card.addEventListener("pointermove", (e) => {
-        const r = card.getBoundingClientRect();
-        const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-        card.style.transform = `perspective(1200px) rotateX(${(0.5 - y) * 7}deg) rotateY(${(x - 0.5) * 9}deg) translateZ(0)`;
-        card.style.setProperty("--mx", `${x * 100}%`);
-        card.style.setProperty("--my", `${y * 100}%`);
-      });
-      card.addEventListener("pointerleave", () => { card.style.transform = ""; });
-    });
-  }
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="assets/cinema.js?v=1"></script>
 <script data-goatcounter="https://nullcompute.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
